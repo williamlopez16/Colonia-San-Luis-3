@@ -299,18 +299,14 @@ function getLocalMatches(): Match[] {
 // ==========================================
 
 export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscribe {
-  const loadLocal = () => {
-    const localTeam = getLocalTeam();
-    callback(localTeam);
-    return localTeam;
-  };
-  loadLocal();
+  const localTeam = getLocalTeam();
+  callback(localTeam);
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'team') loadLocal();
+    if (e.data?.topic === 'team') callback(getLocalTeam());
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.TEAM) loadLocal();
+    if (e.key === STORAGE_KEYS.TEAM) callback(getLocalTeam());
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -331,7 +327,7 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
             callback(data);
           } else {
             // If cloud is empty, seed with local team
-            const currentLocal = loadLocal();
+            const currentLocal = getLocalTeam();
             if (currentLocal) {
               setDoc(doc(targetDb, 'teams', currentLocal.id), cleanForFirestore(currentLocal)).catch(() => {});
             }
@@ -339,7 +335,7 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
         },
         (error) => {
           console.warn('Teams firestore subscription warning:', error);
-          loadLocal();
+          callback(getLocalTeam());
         }
       );
     } catch (err) {
@@ -364,12 +360,8 @@ export async function saveTeam(team: Team): Promise<void> {
   // Push to Cloud Firestore
   const targetDb = db;
   if (targetDb) {
-    try {
-      const teamRef = doc(targetDb, 'teams', updatedTeam.id);
-      await setDoc(teamRef, cleanForFirestore(updatedTeam));
-    } catch (err) {
-      console.warn('saveTeam Firestore error:', err);
-    }
+    const teamRef = doc(targetDb, 'teams', updatedTeam.id);
+    await setDoc(teamRef, cleanForFirestore(updatedTeam));
   }
 }
 
@@ -381,18 +373,14 @@ export function subscribeToTournaments(
   _teamId: string,
   callback: (tournaments: Tournament[]) => void
 ): Unsubscribe {
-  const loadLocal = () => {
-    const list = getLocalTournaments();
-    callback(list);
-    return list;
-  };
-  loadLocal();
+  const localList = getLocalTournaments();
+  callback(localList);
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'tournaments') loadLocal();
+    if (e.data?.topic === 'tournaments') callback(getLocalTournaments());
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.TOURNAMENTS) loadLocal();
+    if (e.key === STORAGE_KEYS.TOURNAMENTS) callback(getLocalTournaments());
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -412,8 +400,7 @@ export function subscribeToTournaments(
             localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(remoteList));
             callback(remoteList);
           } else {
-            // Seed cloud if empty
-            const currentLocal = loadLocal();
+            const currentLocal = getLocalTournaments();
             if (currentLocal.length > 0) {
               currentLocal.forEach((t) => {
                 setDoc(doc(targetDb, 'tournaments', t.id), cleanForFirestore(t)).catch(() => {});
@@ -423,7 +410,7 @@ export function subscribeToTournaments(
         },
         (error) => {
           console.warn('Tournaments snapshot warning:', error);
-          loadLocal();
+          callback(getLocalTournaments());
         }
       );
     } catch (err) {
@@ -458,12 +445,8 @@ export async function saveTournament(tournament: Tournament): Promise<void> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      const docRef = doc(targetDb, 'tournaments', updated.id);
-      await setDoc(docRef, cleanForFirestore(updated));
-    } catch (err) {
-      console.warn('saveTournament Firestore error:', err);
-    }
+    const docRef = doc(targetDb, 'tournaments', updated.id);
+    await setDoc(docRef, cleanForFirestore(updated));
   }
 }
 
@@ -475,19 +458,23 @@ export function subscribeToPlayers(
   _teamId: string,
   callback: (players: Player[]) => void
 ): Unsubscribe {
-  const loadLocal = () => {
-    const list = getLocalPlayers();
-    list.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
-    callback(list);
-    return list;
-  };
-  loadLocal();
+  const localList = getLocalPlayers();
+  localList.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+  callback(localList);
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'players') loadLocal();
+    if (e.data?.topic === 'players') {
+      const updated = getLocalPlayers();
+      updated.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+      callback(updated);
+    }
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.PLAYERS) loadLocal();
+    if (e.key === STORAGE_KEYS.PLAYERS) {
+      const updated = getLocalPlayers();
+      updated.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+      callback(updated);
+    }
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -508,8 +495,7 @@ export function subscribeToPlayers(
             localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(remoteList));
             callback(remoteList);
           } else {
-            // Seed cloud if empty
-            const currentLocal = loadLocal();
+            const currentLocal = getLocalPlayers();
             if (currentLocal.length > 0) {
               currentLocal.forEach((p) => {
                 setDoc(doc(targetDb, 'players', p.id), cleanForFirestore(p)).catch(() => {});
@@ -519,7 +505,9 @@ export function subscribeToPlayers(
         },
         (error) => {
           console.warn('Players snapshot warning:', error);
-          loadLocal();
+          const current = getLocalPlayers();
+          current.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+          callback(current);
         }
       );
     } catch (err) {
@@ -554,12 +542,8 @@ export async function savePlayer(player: Player): Promise<void> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      const docRef = doc(targetDb, 'players', updated.id);
-      await setDoc(docRef, cleanForFirestore(updated));
-    } catch (err) {
-      console.warn('savePlayer Firestore error:', err);
-    }
+    const docRef = doc(targetDb, 'players', updated.id);
+    await setDoc(docRef, cleanForFirestore(updated));
   }
 }
 
@@ -574,11 +558,7 @@ export async function deletePlayer(playerId: string): Promise<void> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      await deleteDoc(doc(targetDb, 'players', playerId));
-    } catch (err) {
-      console.warn('deletePlayer Firestore error:', err);
-    }
+    await deleteDoc(doc(targetDb, 'players', playerId));
   }
 }
 
@@ -590,18 +570,14 @@ export function subscribeToConcepts(
   _teamId: string,
   callback: (concepts: Concept[]) => void
 ): Unsubscribe {
-  const loadLocal = () => {
-    const list = getLocalConcepts();
-    callback(list);
-    return list;
-  };
-  loadLocal();
+  const localList = getLocalConcepts();
+  callback(localList);
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'concepts') loadLocal();
+    if (e.data?.topic === 'concepts') callback(getLocalConcepts());
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.CONCEPTS) loadLocal();
+    if (e.key === STORAGE_KEYS.CONCEPTS) callback(getLocalConcepts());
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -621,7 +597,7 @@ export function subscribeToConcepts(
             localStorage.setItem(STORAGE_KEYS.CONCEPTS, JSON.stringify(remoteList));
             callback(remoteList);
           } else {
-            const currentLocal = loadLocal();
+            const currentLocal = getLocalConcepts();
             if (currentLocal.length > 0) {
               currentLocal.forEach((c) => {
                 setDoc(doc(targetDb, 'concepts', c.id), cleanForFirestore(c)).catch(() => {});
@@ -631,7 +607,7 @@ export function subscribeToConcepts(
         },
         (error) => {
           console.warn('Concepts snapshot warning:', error);
-          loadLocal();
+          callback(getLocalConcepts());
         }
       );
     } catch (err) {
@@ -674,12 +650,8 @@ export async function saveConcept(concept: Concept): Promise<void> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      const docRef = doc(targetDb, 'concepts', updated.id);
-      await setDoc(docRef, cleanForFirestore(updated));
-    } catch (err) {
-      console.warn('saveConcept Firestore error:', err);
-    }
+    const docRef = doc(targetDb, 'concepts', updated.id);
+    await setDoc(docRef, cleanForFirestore(updated));
   }
 }
 
@@ -694,11 +666,7 @@ export async function deleteConcept(conceptId: string): Promise<void> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      await deleteDoc(doc(targetDb, 'concepts', conceptId));
-    } catch (err) {
-      console.warn('deleteConcept Firestore error:', err);
-    }
+    await deleteDoc(doc(targetDb, 'concepts', conceptId));
   }
 }
 
@@ -710,19 +678,26 @@ export function subscribeToMatches(
   _teamId: string,
   callback: (matches: Match[]) => void
 ): Unsubscribe {
-  const loadLocal = () => {
-    const list = getLocalMatches();
-    list.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-    callback(list);
-    return list;
-  };
-  loadLocal();
+  // 1. Deliver local cached matches if any exist
+  const localList = getLocalMatches();
+  if (localList.length > 0) {
+    localList.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
+    callback(localList);
+  }
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'matches') loadLocal();
+    if (e.data?.topic === 'matches') {
+      const current = getLocalMatches();
+      current.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
+      callback(current);
+    }
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.MATCHES) loadLocal();
+    if (e.key === STORAGE_KEYS.MATCHES) {
+      const current = getLocalMatches();
+      current.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
+      callback(current);
+    }
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -731,33 +706,34 @@ export function subscribeToMatches(
   let firestoreUnsub: Unsubscribe | null = null;
   const targetDb = db;
 
+  // 2. Connect to Cloud Firestore in real time
   if (targetDb) {
     try {
-      const q = query(collection(targetDb, 'matches'));
       firestoreUnsub = onSnapshot(
-        q,
+        collection(targetDb, 'matches'),
         (snapshot) => {
           const remoteList = snapshot.docs.map((d) => d.data() as Match);
           remoteList.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-          
-          if (!snapshot.empty) {
-            localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(remoteList));
-            callback(remoteList);
-          } else {
-            // Check if local storage has unsynced matches, upload them to cloud
-            const currentLocal = loadLocal();
+
+          // Save to local cache so next reload is instant
+          localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(remoteList));
+          callback(remoteList);
+
+          // If cloud has zero matches, but local has unsynced matches, upload them to cloud
+          if (snapshot.empty) {
+            const currentLocal = getLocalMatches();
             if (currentLocal.length > 0) {
               currentLocal.forEach((m) => {
                 setDoc(doc(targetDb, 'matches', m.id), cleanForFirestore(m)).catch(() => {});
               });
-            } else {
-              callback([]);
             }
           }
         },
         (error) => {
-          console.warn('Matches snapshot warning:', error);
-          loadLocal();
+          console.warn('Matches Cloud Firestore subscription warning:', error);
+          const current = getLocalMatches();
+          current.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
+          callback(current);
         }
       );
     } catch (err) {
@@ -781,19 +757,26 @@ export function subscribeToMatch(
     return () => {};
   }
 
-  const loadLocal = () => {
-    const list = getLocalMatches();
-    const found = list.find((m) => m.id === matchId) || null;
-    callback(found);
-    return found;
-  };
-  loadLocal();
+  // 1. Deliver local match IF AND ONLY IF it exists (do NOT call callback(null) yet!)
+  const localList = getLocalMatches();
+  const localFound = localList.find((m) => m.id === matchId) || null;
+  if (localFound) {
+    callback(localFound);
+  }
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'matches' || e.data?.topic === `match_${matchId}`) loadLocal();
+    if (e.data?.topic === 'matches' || e.data?.topic === `match_${matchId}`) {
+      const list = getLocalMatches();
+      const found = list.find((m) => m.id === matchId) || null;
+      if (found) callback(found);
+    }
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.MATCHES) loadLocal();
+    if (e.key === STORAGE_KEYS.MATCHES) {
+      const list = getLocalMatches();
+      const found = list.find((m) => m.id === matchId) || null;
+      if (found) callback(found);
+    }
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -802,6 +785,7 @@ export function subscribeToMatch(
   let firestoreUnsub: Unsubscribe | null = null;
   const targetDb = db;
 
+  // 2. Fetch/listen directly from Cloud Firestore
   if (targetDb) {
     try {
       const matchDocRef = doc(targetDb, 'matches', matchId);
@@ -818,17 +802,28 @@ export function subscribeToMatch(
             localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(list));
             callback(data);
           } else {
-            loadLocal();
+            // Firestore explicitly confirms document does NOT exist
+            const list = getLocalMatches();
+            const fallback = list.find((m) => m.id === matchId) || null;
+            callback(fallback);
           }
         },
         (error) => {
           console.warn(`match_${matchId} snapshot warning:`, error);
-          loadLocal();
+          const list = getLocalMatches();
+          const fallback = list.find((m) => m.id === matchId) || null;
+          callback(fallback);
         }
       );
     } catch (err) {
       console.warn(`match_${matchId} listen error:`, err);
+      const list = getLocalMatches();
+      const fallback = list.find((m) => m.id === matchId) || null;
+      callback(fallback);
     }
+  } else {
+    // If no db, return local fallback
+    callback(localFound);
   }
 
   return () => {
@@ -845,7 +840,7 @@ export async function saveMatch(match: Match): Promise<void> {
     updatedAt: new Date().toISOString(),
   };
 
-  // Optimistic local update
+  // 1. Optimistic local update
   const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
   let list: Match[] = raw ? JSON.parse(raw) : [];
   const index = list.findIndex((m) => m.id === updated.id);
@@ -858,15 +853,11 @@ export async function saveMatch(match: Match): Promise<void> {
   notifySync('matches');
   notifySync(`match_${updated.id}`);
 
-  // Push directly to Cloud Firestore
+  // 2. Push directly to Cloud Firestore and wait for confirmation
   const targetDb = db;
   if (targetDb) {
-    try {
-      const docRef = doc(targetDb, 'matches', updated.id);
-      await setDoc(docRef, cleanForFirestore(updated));
-    } catch (err) {
-      console.warn('saveMatch Firestore error:', err);
-    }
+    const docRef = doc(targetDb, 'matches', updated.id);
+    await setDoc(docRef, cleanForFirestore(updated));
   }
 }
 
@@ -881,11 +872,7 @@ export async function deleteMatch(matchId: string): Promise<void> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      await deleteDoc(doc(targetDb, 'matches', matchId));
-    } catch (err) {
-      console.warn('deleteMatch Firestore error:', err);
-    }
+    await deleteDoc(doc(targetDb, 'matches', matchId));
   }
 }
 
@@ -943,7 +930,13 @@ export async function updatePlayerAttendance(
   };
   matchToUpdate.updatedAt = new Date().toISOString();
 
-  // Save to local cache
+  // Save to Cloud Firestore first so all devices receive it instantly
+  if (targetDb) {
+    const docRef = doc(targetDb, 'matches', matchId);
+    await setDoc(docRef, cleanForFirestore(matchToUpdate));
+  }
+
+  // Save to local cache and notify tabs
   const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
   const list: Match[] = raw ? JSON.parse(raw) : [];
   const matchIndex = list.findIndex((m) => m.id === matchId);
@@ -952,12 +945,6 @@ export async function updatePlayerAttendance(
   localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(list));
   notifySync('matches');
   notifySync(`match_${matchId}`);
-
-  // Persist directly to Cloud Firestore so all other devices receive it instantly
-  if (targetDb) {
-    const docRef = doc(targetDb, 'matches', matchId);
-    await setDoc(docRef, cleanForFirestore(matchToUpdate));
-  }
 }
 
 /**
@@ -983,12 +970,8 @@ export async function closeMatchCallup(matchId: string): Promise<Match> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      const docRef = doc(targetDb, 'matches', matchId);
-      await setDoc(docRef, cleanForFirestore(match));
-    } catch (err) {
-      console.warn('closeMatchCallup Firestore error:', err);
-    }
+    const docRef = doc(targetDb, 'matches', matchId);
+    await setDoc(docRef, cleanForFirestore(match));
   }
 
   return match;
@@ -1017,12 +1000,8 @@ export async function reopenMatchCallup(matchId: string): Promise<Match> {
 
   const targetDb = db;
   if (targetDb) {
-    try {
-      const docRef = doc(targetDb, 'matches', matchId);
-      await setDoc(docRef, cleanForFirestore(match));
-    } catch (err) {
-      console.warn('reopenMatchCallup Firestore error:', err);
-    }
+    const docRef = doc(targetDb, 'matches', matchId);
+    await setDoc(docRef, cleanForFirestore(match));
   }
 
   return match;
