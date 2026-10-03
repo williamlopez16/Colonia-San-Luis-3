@@ -1,19 +1,18 @@
 /**
  * Data Service for Convocatoria Fútbol
- * Manages all persistence and real-time synchronization.
- * Uses Firebase Firestore when configured and reachable.
- * Seamlessly provides real-time multi-tab reactive sync (BroadcastChannel + LocalStorage)
- * and guarantees that local data is NEVER wiped by an empty Firestore collection.
+ * Manages all persistence and real-time synchronization across devices.
+ * Uses Cloud Firestore database (ai-studio-convocatoriaftbo-e97628d4-acaf-4ce0-b59f-503104eb0721)
+ * with instant local cache for zero latency and offline tolerance.
  */
 
 import {
   collection,
   doc,
+  getDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
   query,
-  where,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebaseConfig';
@@ -60,49 +59,8 @@ export function cleanForFirestore<T>(data: T): T {
   return data;
 }
 
-// Track if Cloud Firestore backend is responding or operating in local/offline mode
-let isCloudFirestoreOnline = isFirebaseConfigured;
-
 export function isFirestoreOnline(): boolean {
-  return isCloudFirestoreOnline;
-}
-
-function handleSnapshotError(context: string, error: unknown): void {
-  const err = error as { code?: string; message?: string };
-  const isConnectionIssue =
-    err.code === 'unavailable' ||
-    err.message?.includes('offline') ||
-    err.message?.includes('unavailable') ||
-    err.message?.includes('not found') ||
-    err.message?.includes('The operation could not be completed') ||
-    err.message?.includes('Failed to get document because the client is offline');
-
-  if (isConnectionIssue) {
-    if (isCloudFirestoreOnline) {
-      isCloudFirestoreOnline = false;
-      console.info(`[${context}] Firestore operando en modo local/offline.`);
-    }
-  } else {
-    console.warn(`[${context}] Advertencia de suscripción Firestore:`, err.message || error);
-  }
-}
-
-function handleFirestoreSyncError(context: string, err: unknown): void {
-  const msg = err instanceof Error ? err.message : String(err);
-  console.warn(`${context} Firestore sync warning:`, msg);
-
-  if (
-    msg.includes('unavailable') ||
-    msg.includes('offline') ||
-    msg.includes('network') ||
-    msg.includes('The operation could not be completed') ||
-    msg.includes('Failed to get document because the client is offline')
-  ) {
-    console.info(`${context}: guardado localmente, se sincronizará con Firestore cuando la conexión esté disponible.`);
-    return;
-  }
-
-  throw new Error(`No se pudo sincronizar con Firestore: ${msg}`);
+  return isFirebaseConfigured && db !== null;
 }
 
 // Keys for LocalStorage
@@ -130,7 +88,7 @@ export function getActiveTeamId(): string {
   return DEFAULT_TEAM_ID;
 }
 
-// BroadcastChannel for instant multi-tab sync when using local storage
+// BroadcastChannel for instant same-browser tab sync
 let syncChannel: BroadcastChannel | null = null;
 if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   try {
@@ -305,74 +263,35 @@ function initializeLocalStorage() {
 
 initializeLocalStorage();
 
-// Local storage retrieval helpers with team fallback
+// Local storage retrieval helpers
 function getLocalTeam(): Team {
   if (typeof window === 'undefined') return INITIAL_TEAM;
   const raw = localStorage.getItem(STORAGE_KEYS.TEAM);
   return raw ? JSON.parse(raw) : INITIAL_TEAM;
 }
 
-function getLocalTournaments(teamId?: string): Tournament[] {
+function getLocalTournaments(): Tournament[] {
   if (typeof window === 'undefined') return INITIAL_TOURNAMENTS;
   const raw = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
-  const list: Tournament[] = raw ? JSON.parse(raw) : INITIAL_TOURNAMENTS;
-  if (!teamId) return list;
-  return list.filter((t) => t.teamId === teamId || t.teamId === DEFAULT_TEAM_ID || !t.teamId);
+  return raw ? JSON.parse(raw) : INITIAL_TOURNAMENTS;
 }
 
-function getLocalPlayers(teamId?: string): Player[] {
+function getLocalPlayers(): Player[] {
   if (typeof window === 'undefined') return INITIAL_PLAYERS;
   const raw = localStorage.getItem(STORAGE_KEYS.PLAYERS);
-  const list: Player[] = raw ? JSON.parse(raw) : INITIAL_PLAYERS;
-  if (!teamId) return list;
-  return list.filter((p) => p.teamId === teamId || p.teamId === DEFAULT_TEAM_ID || !p.teamId);
+  return raw ? JSON.parse(raw) : INITIAL_PLAYERS;
 }
 
-function getLocalConcepts(teamId?: string): Concept[] {
+function getLocalConcepts(): Concept[] {
   if (typeof window === 'undefined') return INITIAL_CONCEPTS;
   const raw = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
-  const list: Concept[] = raw ? JSON.parse(raw) : INITIAL_CONCEPTS;
-  if (!teamId) return list;
-  return list.filter((c) => c.teamId === teamId || c.teamId === DEFAULT_TEAM_ID || !c.teamId);
+  return raw ? JSON.parse(raw) : INITIAL_CONCEPTS;
 }
 
-function getLocalMatches(teamId?: string): Match[] {
+function getLocalMatches(): Match[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
-  const list: Match[] = raw ? JSON.parse(raw) : [];
-  if (!teamId) return list;
-  return list.filter((m) => m.teamId === teamId || m.teamId === DEFAULT_TEAM_ID || !m.teamId);
-}
-
-function migrateLocalTeamId(newTeamId: string) {
-  try {
-    const rawT = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
-    if (rawT) {
-      const tournaments: Tournament[] = JSON.parse(rawT);
-      const updated = tournaments.map((t) => ({ ...t, teamId: newTeamId }));
-      localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(updated));
-    }
-    const rawP = localStorage.getItem(STORAGE_KEYS.PLAYERS);
-    if (rawP) {
-      const players: Player[] = JSON.parse(rawP);
-      const updated = players.map((p) => ({ ...p, teamId: newTeamId }));
-      localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(updated));
-    }
-    const rawC = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
-    if (rawC) {
-      const concepts: Concept[] = JSON.parse(rawC);
-      const updated = concepts.map((c) => ({ ...c, teamId: newTeamId }));
-      localStorage.setItem(STORAGE_KEYS.CONCEPTS, JSON.stringify(updated));
-    }
-    const rawM = localStorage.getItem(STORAGE_KEYS.MATCHES);
-    if (rawM) {
-      const matches: Match[] = JSON.parse(rawM);
-      const updated = matches.map((m) => ({ ...m, teamId: newTeamId }));
-      localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(updated));
-    }
-  } catch (err) {
-    console.warn('Error migrating local team ID:', err);
-  }
+  return raw ? JSON.parse(raw) : [];
 }
 
 // ==========================================
@@ -398,10 +317,11 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
   window.addEventListener('storage', handleStorage);
 
   let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
 
-  if (isCloudFirestoreOnline && db) {
+  if (targetDb) {
     try {
-      const q = query(collection(db, 'teams'));
+      const q = query(collection(targetDb, 'teams'));
       firestoreUnsub = onSnapshot(
         q,
         (snapshot) => {
@@ -410,33 +330,25 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
             localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(data));
             callback(data);
           } else {
-            // Cloud is empty: NEVER wipe local data with null!
-            // Keep local team and upload it to Firestore if online
+            // If cloud is empty, seed with local team
             const currentLocal = loadLocal();
-            const targetDb = db;
-            if (currentLocal && targetDb) {
+            if (currentLocal) {
               setDoc(doc(targetDb, 'teams', currentLocal.id), cleanForFirestore(currentLocal)).catch(() => {});
             }
           }
         },
         (error) => {
-          handleSnapshotError('teams', error);
+          console.warn('Teams firestore subscription warning:', error);
           loadLocal();
         }
       );
     } catch (err) {
-      handleSnapshotError('teams', err);
+      console.warn('Teams firestore error:', err);
     }
   }
 
   return () => {
-    if (firestoreUnsub) {
-      try {
-        firestoreUnsub();
-      } catch {
-        // Ignore unsubscribe error
-      }
-    }
+    firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
   };
@@ -445,25 +357,18 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
 export async function saveTeam(team: Team): Promise<void> {
   const updatedTeam = { ...team, updatedAt: new Date().toISOString() };
 
-  // Always update local cache for instant UI response
+  // Update local cache
   localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(updatedTeam));
-
-  // Migrate records if team.id changed
-  migrateLocalTeamId(updatedTeam.id);
-
   notifySync('team');
-  notifySync('tournaments');
-  notifySync('players');
-  notifySync('concepts');
-  notifySync('matches');
 
-  if (isFirebaseConfigured && db) {
+  // Push to Cloud Firestore
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const teamRef = doc(db, 'teams', updatedTeam.id);
+      const teamRef = doc(targetDb, 'teams', updatedTeam.id);
       await setDoc(teamRef, cleanForFirestore(updatedTeam));
-      isCloudFirestoreOnline = true;
     } catch (err) {
-      handleFirestoreSyncError('saveTeam', err);
+      console.warn('saveTeam Firestore error:', err);
     }
   }
 }
@@ -473,11 +378,11 @@ export async function saveTeam(team: Team): Promise<void> {
 // ==========================================
 
 export function subscribeToTournaments(
-  teamId: string,
+  _teamId: string,
   callback: (tournaments: Tournament[]) => void
 ): Unsubscribe {
   const loadLocal = () => {
-    const list = getLocalTournaments(teamId);
+    const list = getLocalTournaments();
     callback(list);
     return list;
   };
@@ -494,54 +399,40 @@ export function subscribeToTournaments(
   window.addEventListener('storage', handleStorage);
 
   let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
 
-  if (isCloudFirestoreOnline && db) {
+  if (targetDb) {
     try {
-      const q = query(collection(db, 'tournaments'), where('teamId', '==', teamId));
+      const q = query(collection(targetDb, 'tournaments'));
       firestoreUnsub = onSnapshot(
         q,
         (snapshot) => {
-          if (snapshot.empty) {
-            // Cloud is empty: do NOT wipe local tournaments!
+          if (!snapshot.empty) {
+            const remoteList = snapshot.docs.map((d) => d.data() as Tournament);
+            localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(remoteList));
+            callback(remoteList);
+          } else {
+            // Seed cloud if empty
             const currentLocal = loadLocal();
-            const targetDb = db;
-            if (currentLocal.length > 0 && targetDb) {
+            if (currentLocal.length > 0) {
               currentLocal.forEach((t) => {
                 setDoc(doc(targetDb, 'tournaments', t.id), cleanForFirestore(t)).catch(() => {});
               });
             }
-          } else {
-            const remoteList = snapshot.docs.map((d) => d.data() as Tournament);
-            const localRaw = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
-            let merged = localRaw ? (JSON.parse(localRaw) as Tournament[]) : [];
-            remoteList.forEach((r) => {
-              const idx = merged.findIndex((m) => m.id === r.id);
-              if (idx >= 0) merged[idx] = r;
-              else merged.push(r);
-            });
-            localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(merged));
-            const filtered = merged.filter((t) => t.teamId === teamId || t.teamId === DEFAULT_TEAM_ID || !t.teamId);
-            callback(filtered);
           }
         },
         (error) => {
-          handleSnapshotError('tournaments', error);
+          console.warn('Tournaments snapshot warning:', error);
           loadLocal();
         }
       );
     } catch (err) {
-      handleSnapshotError('tournaments', err);
+      console.warn('Tournaments listen error:', err);
     }
   }
 
   return () => {
-    if (firestoreUnsub) {
-      try {
-        firestoreUnsub();
-      } catch {
-        // Ignore unsubscribe error
-      }
-    }
+    firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
   };
@@ -554,7 +445,6 @@ export async function saveTournament(tournament: Tournament): Promise<void> {
     updatedAt: new Date().toISOString(),
   };
 
-  // Local storage
   const raw = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
   let list: Tournament[] = raw ? JSON.parse(raw) : INITIAL_TOURNAMENTS;
   const index = list.findIndex((t) => t.id === updated.id);
@@ -566,13 +456,13 @@ export async function saveTournament(tournament: Tournament): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(list));
   notifySync('tournaments');
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const docRef = doc(db, 'tournaments', updated.id);
+      const docRef = doc(targetDb, 'tournaments', updated.id);
       await setDoc(docRef, cleanForFirestore(updated));
-      isCloudFirestoreOnline = true;
     } catch (err) {
-      handleFirestoreSyncError('saveTournament', err);
+      console.warn('saveTournament Firestore error:', err);
     }
   }
 }
@@ -582,11 +472,11 @@ export async function saveTournament(tournament: Tournament): Promise<void> {
 // ==========================================
 
 export function subscribeToPlayers(
-  teamId: string,
+  _teamId: string,
   callback: (players: Player[]) => void
 ): Unsubscribe {
   const loadLocal = () => {
-    const list = getLocalPlayers(teamId);
+    const list = getLocalPlayers();
     list.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
     callback(list);
     return list;
@@ -604,55 +494,41 @@ export function subscribeToPlayers(
   window.addEventListener('storage', handleStorage);
 
   let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
 
-  if (isCloudFirestoreOnline && db) {
+  if (targetDb) {
     try {
-      const q = query(collection(db, 'players'), where('teamId', '==', teamId));
+      const q = query(collection(targetDb, 'players'));
       firestoreUnsub = onSnapshot(
         q,
         (snapshot) => {
-          if (snapshot.empty) {
-            // Cloud is empty: do NOT wipe local players!
+          if (!snapshot.empty) {
+            const remoteList = snapshot.docs.map((d) => d.data() as Player);
+            remoteList.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+            localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(remoteList));
+            callback(remoteList);
+          } else {
+            // Seed cloud if empty
             const currentLocal = loadLocal();
-            const targetDb = db;
-            if (currentLocal.length > 0 && targetDb) {
+            if (currentLocal.length > 0) {
               currentLocal.forEach((p) => {
                 setDoc(doc(targetDb, 'players', p.id), cleanForFirestore(p)).catch(() => {});
               });
             }
-          } else {
-            const remoteList = snapshot.docs.map((d) => d.data() as Player);
-            const localRaw = localStorage.getItem(STORAGE_KEYS.PLAYERS);
-            let merged = localRaw ? (JSON.parse(localRaw) as Player[]) : [];
-            remoteList.forEach((r) => {
-              const idx = merged.findIndex((m) => m.id === r.id);
-              if (idx >= 0) merged[idx] = r;
-              else merged.push(r);
-            });
-            localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(merged));
-            const filtered = merged.filter((p) => p.teamId === teamId || p.teamId === DEFAULT_TEAM_ID || !p.teamId);
-            filtered.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
-            callback(filtered);
           }
         },
         (error) => {
-          handleSnapshotError('players', error);
+          console.warn('Players snapshot warning:', error);
           loadLocal();
         }
       );
     } catch (err) {
-      handleSnapshotError('players', err);
+      console.warn('Players listen error:', err);
     }
   }
 
   return () => {
-    if (firestoreUnsub) {
-      try {
-        firestoreUnsub();
-      } catch {
-        // Ignore unsubscribe error
-      }
-    }
+    firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
   };
@@ -676,13 +552,13 @@ export async function savePlayer(player: Player): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(list));
   notifySync('players');
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const docRef = doc(db, 'players', updated.id);
+      const docRef = doc(targetDb, 'players', updated.id);
       await setDoc(docRef, cleanForFirestore(updated));
-      isCloudFirestoreOnline = true;
     } catch (err) {
-      handleFirestoreSyncError('savePlayer', err);
+      console.warn('savePlayer Firestore error:', err);
     }
   }
 }
@@ -696,11 +572,12 @@ export async function deletePlayer(playerId: string): Promise<void> {
     notifySync('players');
   }
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      await deleteDoc(doc(db, 'players', playerId));
+      await deleteDoc(doc(targetDb, 'players', playerId));
     } catch (err) {
-      handleFirestoreSyncError('deletePlayer', err);
+      console.warn('deletePlayer Firestore error:', err);
     }
   }
 }
@@ -710,11 +587,11 @@ export async function deletePlayer(playerId: string): Promise<void> {
 // ==========================================
 
 export function subscribeToConcepts(
-  teamId: string,
+  _teamId: string,
   callback: (concepts: Concept[]) => void
 ): Unsubscribe {
   const loadLocal = () => {
-    const list = getLocalConcepts(teamId);
+    const list = getLocalConcepts();
     callback(list);
     return list;
   };
@@ -731,54 +608,39 @@ export function subscribeToConcepts(
   window.addEventListener('storage', handleStorage);
 
   let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
 
-  if (isCloudFirestoreOnline && db) {
+  if (targetDb) {
     try {
-      const q = query(collection(db, 'concepts'), where('teamId', '==', teamId));
+      const q = query(collection(targetDb, 'concepts'));
       firestoreUnsub = onSnapshot(
         q,
         (snapshot) => {
-          if (snapshot.empty) {
-            // Cloud is empty: do NOT wipe local concepts!
+          if (!snapshot.empty) {
+            const remoteList = snapshot.docs.map((d) => d.data() as Concept);
+            localStorage.setItem(STORAGE_KEYS.CONCEPTS, JSON.stringify(remoteList));
+            callback(remoteList);
+          } else {
             const currentLocal = loadLocal();
-            const targetDb = db;
-            if (currentLocal.length > 0 && targetDb) {
+            if (currentLocal.length > 0) {
               currentLocal.forEach((c) => {
                 setDoc(doc(targetDb, 'concepts', c.id), cleanForFirestore(c)).catch(() => {});
               });
             }
-          } else {
-            const remoteList = snapshot.docs.map((d) => d.data() as Concept);
-            const localRaw = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
-            let merged = localRaw ? (JSON.parse(localRaw) as Concept[]) : [];
-            remoteList.forEach((r) => {
-              const idx = merged.findIndex((m) => m.id === r.id);
-              if (idx >= 0) merged[idx] = r;
-              else merged.push(r);
-            });
-            localStorage.setItem(STORAGE_KEYS.CONCEPTS, JSON.stringify(merged));
-            const filtered = merged.filter((c) => c.teamId === teamId || c.teamId === DEFAULT_TEAM_ID || !c.teamId);
-            callback(filtered);
           }
         },
         (error) => {
-          handleSnapshotError('concepts', error);
+          console.warn('Concepts snapshot warning:', error);
           loadLocal();
         }
       );
     } catch (err) {
-      handleSnapshotError('concepts', err);
+      console.warn('Concepts listen error:', err);
     }
   }
 
   return () => {
-    if (firestoreUnsub) {
-      try {
-        firestoreUnsub();
-      } catch {
-        // Ignore unsubscribe error
-      }
-    }
+    firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
   };
@@ -794,7 +656,6 @@ export async function saveConcept(concept: Concept): Promise<void> {
   const raw = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
   let list: Concept[] = raw ? JSON.parse(raw) : INITIAL_CONCEPTS;
 
-  // If setting default arbitration, unset other defaults
   if (updated.isDefaultArbitration) {
     list = list.map((c) => ({
       ...c,
@@ -811,13 +672,13 @@ export async function saveConcept(concept: Concept): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.CONCEPTS, JSON.stringify(list));
   notifySync('concepts');
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const docRef = doc(db, 'concepts', updated.id);
+      const docRef = doc(targetDb, 'concepts', updated.id);
       await setDoc(docRef, cleanForFirestore(updated));
-      isCloudFirestoreOnline = true;
     } catch (err) {
-      handleFirestoreSyncError('saveConcept', err);
+      console.warn('saveConcept Firestore error:', err);
     }
   }
 }
@@ -831,11 +692,12 @@ export async function deleteConcept(conceptId: string): Promise<void> {
     notifySync('concepts');
   }
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      await deleteDoc(doc(db, 'concepts', conceptId));
+      await deleteDoc(doc(targetDb, 'concepts', conceptId));
     } catch (err) {
-      handleFirestoreSyncError('deleteConcept', err);
+      console.warn('deleteConcept Firestore error:', err);
     }
   }
 }
@@ -845,11 +707,11 @@ export async function deleteConcept(conceptId: string): Promise<void> {
 // ==========================================
 
 export function subscribeToMatches(
-  teamId: string,
+  _teamId: string,
   callback: (matches: Match[]) => void
 ): Unsubscribe {
   const loadLocal = () => {
-    const list = getLocalMatches(teamId);
+    const list = getLocalMatches();
     list.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
     callback(list);
     return list;
@@ -867,55 +729,44 @@ export function subscribeToMatches(
   window.addEventListener('storage', handleStorage);
 
   let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
 
-  if (isCloudFirestoreOnline && db) {
+  if (targetDb) {
     try {
-      const q = query(collection(db, 'matches'), where('teamId', '==', teamId));
+      const q = query(collection(targetDb, 'matches'));
       firestoreUnsub = onSnapshot(
         q,
         (snapshot) => {
-          if (snapshot.empty) {
-            // Cloud is empty: do NOT wipe local matches!
+          const remoteList = snapshot.docs.map((d) => d.data() as Match);
+          remoteList.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
+          
+          if (!snapshot.empty) {
+            localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(remoteList));
+            callback(remoteList);
+          } else {
+            // Check if local storage has unsynced matches, upload them to cloud
             const currentLocal = loadLocal();
-            const targetDb = db;
-            if (currentLocal.length > 0 && targetDb) {
+            if (currentLocal.length > 0) {
               currentLocal.forEach((m) => {
                 setDoc(doc(targetDb, 'matches', m.id), cleanForFirestore(m)).catch(() => {});
               });
+            } else {
+              callback([]);
             }
-          } else {
-            const remoteList = snapshot.docs.map((d) => d.data() as Match);
-            const localRaw = localStorage.getItem(STORAGE_KEYS.MATCHES);
-            let merged = localRaw ? (JSON.parse(localRaw) as Match[]) : [];
-            remoteList.forEach((r) => {
-              const idx = merged.findIndex((m) => m.id === r.id);
-              if (idx >= 0) merged[idx] = r;
-              else merged.push(r);
-            });
-            localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(merged));
-            const filtered = merged.filter((m) => m.teamId === teamId || m.teamId === DEFAULT_TEAM_ID || !m.teamId);
-            filtered.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-            callback(filtered);
           }
         },
         (error) => {
-          handleSnapshotError('matches', error);
+          console.warn('Matches snapshot warning:', error);
           loadLocal();
         }
       );
     } catch (err) {
-      handleSnapshotError('matches', err);
+      console.warn('Matches listen error:', err);
     }
   }
 
   return () => {
-    if (firestoreUnsub) {
-      try {
-        firestoreUnsub();
-      } catch {
-        // Ignore unsubscribe error
-      }
-    }
+    firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
   };
@@ -949,10 +800,11 @@ export function subscribeToMatch(
   window.addEventListener('storage', handleStorage);
 
   let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
 
-  if (isCloudFirestoreOnline && db) {
+  if (targetDb) {
     try {
-      const matchDocRef = doc(db, 'matches', matchId);
+      const matchDocRef = doc(targetDb, 'matches', matchId);
       firestoreUnsub = onSnapshot(
         matchDocRef,
         (snapshot) => {
@@ -966,28 +818,21 @@ export function subscribeToMatch(
             localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(list));
             callback(data);
           } else {
-            // Document not found in Firestore: check local before returning null!
             loadLocal();
           }
         },
         (error) => {
-          handleSnapshotError(`match_${matchId}`, error);
+          console.warn(`match_${matchId} snapshot warning:`, error);
           loadLocal();
         }
       );
     } catch (err) {
-      handleSnapshotError(`match_${matchId}`, err);
+      console.warn(`match_${matchId} listen error:`, err);
     }
   }
 
   return () => {
-    if (firestoreUnsub) {
-      try {
-        firestoreUnsub();
-      } catch {
-        // Ignore unsubscribe error
-      }
-    }
+    firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
   };
@@ -1000,6 +845,7 @@ export async function saveMatch(match: Match): Promise<void> {
     updatedAt: new Date().toISOString(),
   };
 
+  // Optimistic local update
   const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
   let list: Match[] = raw ? JSON.parse(raw) : [];
   const index = list.findIndex((m) => m.id === updated.id);
@@ -1012,13 +858,14 @@ export async function saveMatch(match: Match): Promise<void> {
   notifySync('matches');
   notifySync(`match_${updated.id}`);
 
-  if (isFirebaseConfigured && db) {
+  // Push directly to Cloud Firestore
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const docRef = doc(db, 'matches', updated.id);
+      const docRef = doc(targetDb, 'matches', updated.id);
       await setDoc(docRef, cleanForFirestore(updated));
-      isCloudFirestoreOnline = true;
     } catch (err) {
-      handleFirestoreSyncError('saveMatch', err);
+      console.warn('saveMatch Firestore error:', err);
     }
   }
 }
@@ -1032,17 +879,18 @@ export async function deleteMatch(matchId: string): Promise<void> {
     notifySync('matches');
   }
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      await deleteDoc(doc(db, 'matches', matchId));
+      await deleteDoc(doc(targetDb, 'matches', matchId));
     } catch (err) {
-      handleFirestoreSyncError('deleteMatch', err);
+      console.warn('deleteMatch Firestore error:', err);
     }
   }
 }
 
 /**
- * Public or admin attendance update
+ * Public player confirmation from mobile phone or admin attendance update
  */
 export async function updatePlayerAttendance(
   matchId: string,
@@ -1050,44 +898,65 @@ export async function updatePlayerAttendance(
   newStatus: AttendanceStatus,
   reason?: string
 ): Promise<void> {
-  const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
-  const list: Match[] = raw ? JSON.parse(raw) : [];
-  const matchIndex = list.findIndex((m) => m.id === matchId);
+  const targetDb = db;
+  let matchToUpdate: Match | null = null;
 
-  if (matchIndex === -1) {
-    throw new Error('Partido no encontrado o enlace inválido');
+  // 1. Try fetching from Cloud Firestore first
+  if (targetDb) {
+    try {
+      const docRef = doc(targetDb, 'matches', matchId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        matchToUpdate = snap.data() as Match;
+      }
+    } catch (err) {
+      console.warn('getDoc for attendance error:', err);
+    }
   }
 
-  const match = list[matchIndex];
-  if (match.status === 'Cerrada') {
+  // 2. Fallback to local storage if not fetched from cloud
+  if (!matchToUpdate) {
+    const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
+    const list: Match[] = raw ? JSON.parse(raw) : [];
+    const found = list.find((m) => m.id === matchId);
+    if (found) matchToUpdate = JSON.parse(JSON.stringify(found));
+  }
+
+  if (!matchToUpdate) {
+    throw new Error('Partido no encontrado o enlace inválido.');
+  }
+
+  if (matchToUpdate.status === 'Cerrada') {
     throw new Error('La convocatoria para este partido ya ha sido cerrada por el administrador.');
   }
 
-  const callupIndex = match.callups.findIndex((c) => c.playerId === playerId);
+  const callupIndex = matchToUpdate.callups.findIndex((c) => c.playerId === playerId);
   if (callupIndex === -1) {
     throw new Error('El jugador no forma parte de la convocatoria de este partido.');
   }
 
-  match.callups[callupIndex] = {
-    ...match.callups[callupIndex],
+  matchToUpdate.callups[callupIndex] = {
+    ...matchToUpdate.callups[callupIndex],
     status: newStatus,
     reason: newStatus === 'No asiste' ? reason || 'No especificado' : undefined,
     confirmedAt: new Date().toISOString(),
   };
-  match.updatedAt = new Date().toISOString();
+  matchToUpdate.updatedAt = new Date().toISOString();
 
-  list[matchIndex] = match;
+  // Save to local cache
+  const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
+  const list: Match[] = raw ? JSON.parse(raw) : [];
+  const matchIndex = list.findIndex((m) => m.id === matchId);
+  if (matchIndex >= 0) list[matchIndex] = matchToUpdate;
+  else list.unshift(matchToUpdate);
   localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(list));
   notifySync('matches');
   notifySync(`match_${matchId}`);
 
-  if (isFirebaseConfigured && db) {
-    try {
-      const docRef = doc(db, 'matches', matchId);
-      await setDoc(docRef, cleanForFirestore(match), { merge: true });
-    } catch (err) {
-      handleFirestoreSyncError('updatePlayerAttendance', err);
-    }
+  // Persist directly to Cloud Firestore so all other devices receive it instantly
+  if (targetDb) {
+    const docRef = doc(targetDb, 'matches', matchId);
+    await setDoc(docRef, cleanForFirestore(matchToUpdate));
   }
 }
 
@@ -1112,16 +981,13 @@ export async function closeMatchCallup(matchId: string): Promise<Match> {
   notifySync('matches');
   notifySync(`match_${matchId}`);
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const docRef = doc(db, 'matches', matchId);
-      await setDoc(
-        docRef,
-        cleanForFirestore({ status: 'Cerrada', updatedAt: match.updatedAt }),
-        { merge: true }
-      );
+      const docRef = doc(targetDb, 'matches', matchId);
+      await setDoc(docRef, cleanForFirestore(match));
     } catch (err) {
-      handleFirestoreSyncError('closeMatchCallup', err);
+      console.warn('closeMatchCallup Firestore error:', err);
     }
   }
 
@@ -1149,16 +1015,13 @@ export async function reopenMatchCallup(matchId: string): Promise<Match> {
   notifySync('matches');
   notifySync(`match_${matchId}`);
 
-  if (isFirebaseConfigured && db) {
+  const targetDb = db;
+  if (targetDb) {
     try {
-      const docRef = doc(db, 'matches', matchId);
-      await setDoc(
-        docRef,
-        cleanForFirestore({ status: 'Abierta', updatedAt: match.updatedAt }),
-        { merge: true }
-      );
+      const docRef = doc(targetDb, 'matches', matchId);
+      await setDoc(docRef, cleanForFirestore(match));
     } catch (err) {
-      handleFirestoreSyncError('reopenMatchCallup', err);
+      console.warn('reopenMatchCallup Firestore error:', err);
     }
   }
 
