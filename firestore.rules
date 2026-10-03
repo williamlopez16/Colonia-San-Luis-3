@@ -2,94 +2,32 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128;
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    // Validation for Team
-    function isValidTeam(data) {
-      return data.id is string
-        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
-        && data.category is string && data.category.size() >= 2 && data.category.size() <= 50
-        && data.primaryColor is string && data.primaryColor.size() >= 3 && data.primaryColor.size() <= 30;
-    }
-
-    // Validation for Tournament
-    function isValidTournament(data) {
-      return data.id is string
-        && data.teamId is string
-        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100;
-    }
-
-    // Validation for Player
-    function isValidPlayer(data) {
-      return data.id is string
-        && data.teamId is string
-        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 100
-        && data.jerseyNumber is number && data.jerseyNumber >= 0 && data.jerseyNumber <= 999
-        && data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 30
-        && (data.status == 'Activo' || data.status == 'Inactivo' || data.status == 'Lesionado');
-    }
-
-    // Validation for Concept
-    function isValidConcept(data) {
-      return data.id is string
-        && data.teamId is string
-        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
-        && data.suggestedValue is number && data.suggestedValue >= 0;
-    }
-
-    // Validation for Match
-    function isValidMatch(data) {
-      return data.id is string
-        && data.teamId is string
-        && data.rival is string && data.rival.size() >= 1 && data.rival.size() <= 100
-        && data.date is string && data.date.size() >= 1 && data.date.size() <= 50
-        && (data.status == 'Abierta' || data.status == 'Cerrada');
-    }
-
-    // Team collection
+    // Teams collection
     match /teams/{teamId} {
-      allow read: if isValidId(teamId);
-      allow create, update: if isValidId(teamId) && isValidTeam(incoming());
-      allow delete: if isValidId(teamId);
+      allow read, write: if true;
     }
 
     // Tournaments collection
     match /tournaments/{tournamentId} {
-      allow read: if isValidId(tournamentId);
-      allow create, update: if isValidId(tournamentId) && isValidTournament(incoming());
-      allow delete: if isValidId(tournamentId);
+      allow read, write: if true;
     }
 
     // Players collection
     match /players/{playerId} {
-      allow read: if isValidId(playerId);
-      allow create, update: if isValidId(playerId) && isValidPlayer(incoming());
-      allow delete: if isValidId(playerId);
+      allow read, write: if true;
     }
 
     // Concepts collection
     match /concepts/{conceptId} {
-      allow read: if isValidId(conceptId);
-      allow create, update: if isValidId(conceptId) && isValidConcept(incoming());
-      allow delete: if isValidId(conceptId);
+      allow read, write: if true;
     }
 
-    // Matches collection
+    // Matches and callups collection
     match /matches/{matchId} {
-      allow read: if isValidId(matchId);
-      allow create, update: if isValidId(matchId) && isValidMatch(incoming());
-      allow delete: if isValidId(matchId);
+      allow read, write: if true;
     }
 
-    // Default deny for any other path
+    // Fallback deny
     match /{document=**} {
       allow read, write: if false;
     }
