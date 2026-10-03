@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Convocatoria Fútbol",
+  "short_name": "Convocatoria",
+  "description": "Gestión de equipo amateur y convocatorias de partidos de fútbol",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#15803d",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

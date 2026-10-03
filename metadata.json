@@ -1,0 +1,6 @@
+{
+  "name": "Convocatoria Fútbol - Gestión de Equipo",
+  "description": "Aplicación web para gestión de equipos de fútbol amateur, torneos, jugadores, convocatorias en tiempo real vía WhatsApp y cartelera deportiva matchday.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
