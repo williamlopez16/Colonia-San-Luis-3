@@ -13,6 +13,7 @@ export interface Team {
   id: string;
   name: string;
   category: string;
+  slogan?: string;
   primaryColor: string; // Hex color, e.g. #15803d
   secondaryColor: string; // Hex color, e.g. #ffffff
   createdAt: string;

@@ -92,17 +92,24 @@ export function renderMatchdayToCanvas(
       // Team Name
       ctx.save();
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 48px "Inter", "Segoe UI", sans-serif';
+      ctx.font = '900 46px "Inter", "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
       ctx.shadowBlur = 12;
-      ctx.fillText(team.name.toUpperCase(), size / 2, 96);
+      ctx.fillText(team.name.toUpperCase(), size / 2, 94);
+
+      // Slogan
+      ctx.fillStyle = '#86efac';
+      ctx.font = 'bold 16px "Inter", "Segoe UI", sans-serif';
+      ctx.shadowBlur = 0;
+      ctx.fillText(team.slogan || 'LA PERLA BONITA DE ANTIOQUIA', size / 2, 146);
+      ctx.restore();
 
       // Match Details Card
       ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
       const cardX = 60;
-      const cardY = 168;
+      const cardY = 176;
       const cardW = size - 120;
       const cardH = 135;
       ctx.roundRect(cardX, cardY, cardW, cardH, 16);
@@ -229,7 +236,7 @@ export function renderMatchdayToCanvas(
       // Hashtag / Location
       ctx.fillStyle = '#86efac';
       ctx.font = '600 18px "Inter", "Segoe UI", sans-serif';
-      ctx.fillText('#SanLuisAntioquia  •  #VamosEquipo  •  #FútbolAmateur', size / 2, footerY + 70);
+      ctx.fillText('#LaPerlaBonitaDeAntioquia  •  #VamosEquipo  •  #FútbolAmateur', size / 2, footerY + 70);
       ctx.restore();
 
       resolve();

@@ -176,7 +176,7 @@ export default function App() {
       <div className="min-h-screen bg-emerald-900 flex flex-col items-center justify-center p-4 text-white">
         <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4" />
         <h2 className="text-lg font-bold">Cargando Convocatoria Fútbol...</h2>
-        <p className="text-xs text-emerald-200 mt-1">San Luis, Antioquia 🟢⚪</p>
+        <p className="text-xs text-emerald-200 mt-1 font-bold uppercase tracking-wider">LA PERLA BONITA DE ANTIOQUIA 🟢⚪</p>
       </div>
     );
   }

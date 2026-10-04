@@ -19,6 +19,7 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
   // Team form state
   const [teamName, setTeamName] = useState<string>(team?.name || 'Club San Luis');
   const [category, setCategory] = useState<string>(team?.category || 'Categoría Libre');
+  const [slogan, setSlogan] = useState<string>(team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA');
   const [primaryColor, setPrimaryColor] = useState<string>(team?.primaryColor || '#15803d');
   const [secondaryColor, setSecondaryColor] = useState<string>(team?.secondaryColor || '#ffffff');
 
@@ -59,6 +60,7 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
         id: team?.id || getActiveTeamId(),
         name: trimmedName,
         category: trimmedCategory,
+        slogan: slogan.trim() || 'LA PERLA BONITA DE ANTIOQUIA',
         primaryColor,
         secondaryColor,
         createdAt: team?.createdAt || new Date().toISOString(),
@@ -188,6 +190,19 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
                   placeholder="Ej. Libre, Veteranos, Sub-20, Femenino"
                   className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden transition"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Eslogan del Equipo
+                </label>
+                <input
+                  type="text"
+                  value={slogan}
+                  onChange={(e) => setSlogan(e.target.value)}
+                  placeholder="Ej. LA PERLA BONITA DE ANTIOQUIA"
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden transition"
                 />
               </div>
             </div>

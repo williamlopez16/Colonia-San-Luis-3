@@ -43,8 +43,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <Settings2 className="w-3.5 h-3.5 text-emerald-300 opacity-80" />
                 </h1>
               </div>
-              <p className="text-xs text-emerald-200 font-medium">
-                {team?.category || 'Categoría Libre'} • San Luis, Antioquia
+              <p className="text-[11px] sm:text-xs text-emerald-200 font-bold tracking-wider uppercase">
+                {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
               </p>
             </div>
           </div>

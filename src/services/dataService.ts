@@ -109,6 +109,7 @@ const INITIAL_TEAM: Team = {
   id: DEFAULT_TEAM_ID,
   name: 'Club San Luis',
   category: 'Categoría Libre',
+  slogan: 'LA PERLA BONITA DE ANTIOQUIA',
   primaryColor: '#15803d', // Verde
   secondaryColor: '#ffffff', // Blanco
   createdAt: new Date().toISOString(),

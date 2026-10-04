@@ -185,6 +185,9 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">
               {team?.name || 'Club San Luis'}
             </h1>
+            <p className="text-[11px] sm:text-xs text-emerald-200 font-bold tracking-wider uppercase">
+              {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
+            </p>
             <p className="text-emerald-200 font-bold text-sm">
               VS  <span className="text-white underline decoration-emerald-400">{match.rival}</span>
             </p>
@@ -371,25 +374,19 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
                     <button
                       onClick={() => handleConfirmAttendance('Confirmado')}
                       disabled={isSubmitting}
-                      className="py-4 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm shadow-md hover:shadow-lg transition flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                      className="py-4 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      <CheckCircle2 className="w-7 h-7" />
+                      <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
                       <span>¡SÍ, CONFIRMO ASISTENCIA!</span>
-                      <span className="text-[11px] font-normal text-emerald-100">
-                        Cuento con el arbitraje y uniforme
-                      </span>
                     </button>
 
                     <button
                       onClick={() => setShowDeclineReason(true)}
                       disabled={isSubmitting}
-                      className="py-4 px-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black text-sm shadow-md hover:shadow-lg transition flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                      className="py-4 px-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      <XCircle className="w-7 h-7" />
+                      <XCircle className="w-6 h-6 flex-shrink-0" />
                       <span>NO PUEDO ASISTIR</span>
-                      <span className="text-[11px] font-normal text-red-100">
-                        Avisar al cuerpo técnico
-                      </span>
                     </button>
                   </div>
                 ) : (
@@ -499,7 +496,7 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
 
         {/* Footer info */}
         <div className="text-center text-xs text-gray-400 py-3">
-          <p>Convocatoria Fútbol • San Luis, Antioquia 🟢⚪</p>
+          <p>Convocatoria Fútbol • LA PERLA BONITA DE ANTIOQUIA 🟢⚪</p>
         </div>
       </div>
     </div>
