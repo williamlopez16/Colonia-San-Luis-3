@@ -1240,7 +1240,8 @@ export async function renderMatchdayToCanvas(
 
   // Load team official logo
   let teamLogoImg: HTMLImageElement | null = null;
-  const logoUrl = team.logoUrl || '/team_logo.jpg';
+  const rawUrl = team.logoUrl || '/team_logo.png?v=3';
+  const logoUrl = rawUrl.includes('.jpg') ? '/team_logo.png?v=3' : (rawUrl.includes('?') ? rawUrl : `${rawUrl}?v=3`);
   try {
     teamLogoImg = await loadImage(logoUrl);
   } catch (err) {

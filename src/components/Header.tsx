@@ -51,14 +51,14 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-3">
             {/* Official Club Logo Crest */}
             <div
-              className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-0.5 shadow-md border-2 border-emerald-950 flex-shrink-0 cursor-pointer overflow-hidden hover:scale-105 transition-transform"
+              className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center p-0.5 shadow-xs border border-emerald-400/40 flex-shrink-0 cursor-pointer overflow-hidden hover:scale-105 transition-transform"
               onClick={onOpenTeamModal}
               title="Configurar equipo - Colonia de San Luis"
             >
               <img
-                src={team?.logoUrl || '/team_logo.jpg'}
+                src={(team?.logoUrl && !team.logoUrl.includes('.jpg')) ? team.logoUrl : '/team_logo.png?v=3'}
                 alt={team?.name || 'Colonia de San Luis'}
-                className="w-full h-full object-cover rounded-full"
+                className="w-full h-full object-contain filter drop-shadow-xs"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}

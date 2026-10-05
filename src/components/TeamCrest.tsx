@@ -61,8 +61,10 @@ export const TeamCrest: React.FC<TeamCrestProps> = ({
   const currentSize = sizeMap[size];
   const initials = getInitials(name);
 
-  // If this is our team, use the fixed official team logo
-  const effectiveLogo = !imageError ? (logoUrl || (isOurTeam ? '/team_logo.jpg' : undefined)) : undefined;
+  // If this is our team, use the fixed official team logo with transparency
+  const rawLogo = logoUrl || (isOurTeam ? '/team_logo.png?v=3' : undefined);
+  const normalizedLogo = rawLogo?.includes('.jpg') ? '/team_logo.png?v=3' : rawLogo;
+  const effectiveLogo = !imageError ? normalizedLogo : undefined;
 
   if (effectiveLogo) {
     return (
@@ -74,7 +76,7 @@ export const TeamCrest: React.FC<TeamCrestProps> = ({
           src={effectiveLogo}
           alt={name}
           onError={() => setImageError(true)}
-          className="w-full h-full object-contain filter drop-shadow-md rounded-md hover:scale-105 transition-transform"
+          className="w-full h-full object-contain filter drop-shadow-md hover:scale-105 transition-transform"
         />
       </div>
     );

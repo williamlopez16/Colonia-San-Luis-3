@@ -75,7 +75,7 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
         name: trimmedName,
         category: trimmedCategory,
         slogan: slogan.trim() || 'LA PERLA VERDE DE ANTIOQUIA',
-        logoUrl: team?.logoUrl || '/team_logo.jpg',
+        logoUrl: (!team?.logoUrl || team.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : team.logoUrl,
         adminPassword: trimmedPassword,
         primaryColor,
         secondaryColor,
@@ -182,11 +182,11 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
 
           {/* Official Logo Banner */}
           <div className="flex items-center gap-4 p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 mb-5 shadow-2xs">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1 shadow-sm border border-emerald-300 flex-shrink-0 flex items-center justify-center overflow-hidden">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/40 p-1 shadow-xs border border-emerald-300/60 flex-shrink-0 flex items-center justify-center overflow-hidden">
               <img
-                src={team?.logoUrl || '/team_logo.jpg'}
+                src={(!team?.logoUrl || team.logoUrl.includes('.jpg')) ? '/team_logo.png?v=3' : team.logoUrl}
                 alt="Escudo Oficial Colonia de San Luis"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain filter drop-shadow-sm"
               />
             </div>
             <div>

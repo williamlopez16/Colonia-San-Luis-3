@@ -119,7 +119,7 @@ const INITIAL_TEAM: Team = {
   name: 'Colonia de San Luis',
   category: 'Categoría Libre',
   slogan: 'LA PERLA VERDE DE ANTIOQUIA',
-  logoUrl: '/team_logo.jpg',
+  logoUrl: '/team_logo.png',
   adminPassword: 'admin',
   primaryColor: '#15803d', // Verde
   secondaryColor: '#ffffff', // Blanco
@@ -282,8 +282,8 @@ function getLocalTeam(): Team {
   if (!raw) return INITIAL_TEAM;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed.logoUrl) {
-      parsed.logoUrl = '/team_logo.jpg';
+    if (!parsed.logoUrl || parsed.logoUrl.endsWith('.jpg')) {
+      parsed.logoUrl = '/team_logo.png';
     }
     return parsed;
   } catch {
@@ -357,8 +357,8 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
         (snapshot) => {
           if (!snapshot.empty) {
             const data = snapshot.docs[0].data() as Team;
-            if (!data.logoUrl) {
-              data.logoUrl = '/team_logo.jpg';
+            if (!data.logoUrl || data.logoUrl.endsWith('.jpg')) {
+              data.logoUrl = '/team_logo.png';
             }
             localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(data));
             callback(data);
@@ -390,7 +390,7 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
 export async function saveTeam(team: Team): Promise<void> {
   const updatedTeam = {
     ...team,
-    logoUrl: team.logoUrl || '/team_logo.jpg',
+    logoUrl: (!team.logoUrl || team.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : team.logoUrl,
     updatedAt: new Date().toISOString(),
   };
 
