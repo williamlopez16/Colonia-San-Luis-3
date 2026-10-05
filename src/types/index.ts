@@ -15,6 +15,7 @@ export interface Team {
   category: string;
   slogan?: string;
   adminPassword?: string; // Clave de modo gestión (administrador/DT)
+  backgroundPhotos?: string[]; // Fotos de fondo para carteleras matchday
   primaryColor: string; // Hex color, e.g. #15803d
   secondaryColor: string; // Hex color, e.g. #ffffff
   createdAt: string;

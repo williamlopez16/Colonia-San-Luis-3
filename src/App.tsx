@@ -17,6 +17,8 @@ import {
   DEFAULT_TEAM_ID,
 } from './services/dataService';
 import { Header, type AppTab } from './components/Header';
+import { AccessModeProvider } from './context/AccessModeContext';
+import { AdminAccessModal } from './components/AdminAccessModal';
 import { DashboardView } from './components/DashboardView';
 import { MatchList } from './components/MatchList';
 import { MatchForm } from './components/MatchForm';
@@ -54,6 +56,7 @@ export default function App() {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [showMatchdayGraphic, setShowMatchdayGraphic] = useState<boolean>(false);
   const [showTeamModal, setShowTeamModal] = useState<boolean>(false);
+  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
 
   // Financial modals state (opened from PlayerManagement)
   const [financePlayer, setFinancePlayer] = useState<Player | null>(null);
@@ -232,22 +235,24 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      {/* Firebase sync status banner */}
-      <FirebaseStatusBanner />
+    <AccessModeProvider team={team}>
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+        {/* Firebase sync status banner */}
+        <FirebaseStatusBanner />
 
-      {/* Main App Header with Tabs & Install Button */}
-      <Header
-        team={team}
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          setIsCreatingMatch(false);
-          setEditingMatch(null);
-          setSelectedMatchId(null);
-        }}
-        onOpenTeamModal={() => setShowTeamModal(true)}
-      />
+        {/* Main App Header with Tabs & Install Button */}
+        <Header
+          team={team}
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            setIsCreatingMatch(false);
+            setEditingMatch(null);
+            setSelectedMatchId(null);
+          }}
+          onOpenTeamModal={() => setShowTeamModal(true)}
+          onOpenAdminModal={() => setShowAdminModal(true)}
+        />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 pb-16">
@@ -424,6 +429,13 @@ export default function App() {
 
       {/* Offline Connectivity Banner */}
       <OfflineBanner />
+
+      {/* Admin Access Modal */}
+      <AdminAccessModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+      />
     </div>
+  </AccessModeProvider>
   );
 }

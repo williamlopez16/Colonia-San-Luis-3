@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Team, Match, Player, Charge, Tournament } from '../types';
 import type { AppTab } from './Header';
+import { useAccessMode } from '../context/AccessModeContext';
+import { AdminAccessModal } from './AdminAccessModal';
 import { formatMatchDate } from '../services/whatsappService';
 import { TeamCrest } from './TeamCrest';
 import {
@@ -50,6 +52,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenMatchStats,
   onNavigateToTab,
 }) => {
+  const { isAdminMode } = useAccessMode();
+  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const handleEditClick = (m: Match) => {
+    if (isAdminMode) {
+      onEditMatch(m);
+    } else {
+      setPendingAction(() => () => onEditMatch(m));
+      setShowAdminModal(true);
+    }
+  };
+
+  const handleProgramClick = () => {
+    if (isAdminMode) {
+      onProgramMatch();
+    } else {
+      setPendingAction(() => () => onProgramMatch());
+      setShowAdminModal(true);
+    }
+  };
+
+  const handleStatsClick = (matchId: string, isPlayedOrFinal: boolean) => {
+    if (isAdminMode || isPlayedOrFinal) {
+      onOpenMatchStats(matchId);
+    } else {
+      setPendingAction(() => () => onOpenMatchStats(matchId));
+      setShowAdminModal(true);
+    }
+  };
+
   const teamName = team?.name || 'Club San Luis';
   const teamSlogan = team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA';
 
@@ -288,7 +321,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {/* 1. Editar partido */}
                 <button
-                  onClick={() => onEditMatch(nextMatch)}
+                  onClick={() => handleEditClick(nextMatch)}
                   className="flex flex-col sm:flex-row items-center justify-center gap-2 p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 font-bold text-xs transition cursor-pointer hover:border-gray-300 shadow-2xs"
                   title="Editar fecha, cancha, rival o convocados"
                 >
@@ -318,7 +351,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                 {/* 4. Marcador / Estadísticas */}
                 <button
-                  onClick={() => onOpenMatchStats(nextMatch.id)}
+                  onClick={() => handleStatsClick(nextMatch.id, Boolean(nextMatch.matchState === 'Finalizado' || nextMatch.score?.isPlayed))}
                   className="flex flex-col sm:flex-row items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-xs hover:shadow-sm"
                   title="Cargar resultado final, goles, asistencias y tarjetas"
                 >
@@ -342,7 +375,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Programa el siguiente encuentro de tu equipo para convocar a los jugadores, generar automáticamente los cobros de arbitraje y compartir el enlace de confirmación.
           </p>
           <button
-            onClick={onProgramMatch}
+            onClick={handleProgramClick}
             className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -543,6 +576,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </section>
       )}
+
+      {/* Admin Access Modal for shortcuts */}
+      <AdminAccessModal
+        isOpen={showAdminModal}
+        onClose={() => {
+          setShowAdminModal(false);
+          setPendingAction(null);
+        }}
+        onSuccess={() => {
+          if (pendingAction) {
+            pendingAction();
+            setPendingAction(null);
+          }
+        }}
+      />
     </div>
   );
 };

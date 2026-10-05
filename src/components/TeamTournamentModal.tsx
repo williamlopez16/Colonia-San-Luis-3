@@ -17,8 +17,8 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
   onClose,
   isInitialSetup = false,
 }) => {
-  const { isAdminMode } = useAccessMode();
-  const canEdit = isAdminMode || isInitialSetup;
+  const { isAdminMode, unlockAdminMode } = useAccessMode();
+  const canEdit = isAdminMode || isInitialSetup || !team?.adminPassword;
 
   // Team form state
   const [teamName, setTeamName] = useState<string>(team?.name || 'Club San Luis');
@@ -83,7 +83,8 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
       };
 
       await saveTeam(updatedTeam);
-      setSuccessMessage('¡Información del equipo guardada con éxito!');
+      unlockAdminMode(trimmedPassword);
+      setSuccessMessage('¡Información del equipo guardada con éxito y Modo Administrador activado!');
       if (onClose && isInitialSetup) {
         setTimeout(() => onClose(), 600);
       }
