@@ -217,44 +217,54 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
 
         {/* Visual Clash Section */}
         <div className="py-6 px-2 sm:px-6 bg-gradient-to-b from-gray-50/50 to-white rounded-2xl my-3">
-          <div className="grid grid-cols-7 items-center gap-2 sm:gap-4">
-            {/* Left: Our Team */}
-            <div className="col-span-3 flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
-              <TeamCrest name={team?.name || 'Club San Luis'} isOurTeam size="xl" className="flex-shrink-0" />
-              <div>
-                <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight">
-                  {team?.name || 'Club San Luis'}
-                </h2>
-                <p className="text-[11px] sm:text-xs text-emerald-700 font-bold uppercase tracking-wider">
-                  {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
-                </p>
-              </div>
+          <div className="grid grid-cols-7 items-center gap-2 sm:gap-4 py-2">
+            {/* Left: Home Team (Centered) */}
+            <div className="col-span-3 flex flex-col items-center justify-center text-center">
+              <TeamCrest name={team?.name || 'Colonia San Luis'} isOurTeam size="xl" className="flex-shrink-0" />
+              <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight mt-2 text-center max-w-[220px]">
+                {team?.name || 'Colonia San Luis'}
+              </h2>
             </div>
 
             {/* Center: Scoreboard / VS */}
             <div className="col-span-1 flex flex-col items-center justify-center">
               {match.score?.isPlayed || match.matchState === 'Finalizado' ? (
-                <div className="bg-gray-950 text-white font-mono font-black text-xl sm:text-3xl px-3 sm:px-5 py-2 rounded-2xl shadow-lg border border-gray-800 text-center">
-                  {match.score?.homeGoals ?? 0} - {match.score?.awayGoals ?? 0}
+                <div className="flex flex-col items-center">
+                  <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white px-3.5 sm:px-6 py-2 sm:py-2.5 rounded-2xl shadow-xl border-2 border-emerald-500/40 text-center ring-1 ring-emerald-500/20">
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-0.5">
+                      FINAL
+                    </span>
+                    <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 font-mono font-black text-2xl sm:text-4xl tracking-tight">
+                      <span className="text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.25)]">
+                        {match.score?.homeGoals ?? 0}
+                      </span>
+                      <span className="text-emerald-500 text-base sm:text-2xl font-sans">-</span>
+                      <span className="text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.25)]">
+                        {match.score?.awayGoals ?? 0}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-700 text-white font-black text-sm sm:text-base flex items-center justify-center shadow-md border-2 border-emerald-500">
-                  VS
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-950 text-white flex flex-col items-center justify-center shadow-lg border-2 border-emerald-400/60">
+                    <span className="font-black text-sm sm:text-lg tracking-wider">VS</span>
+                  </div>
+                  {match.time && (
+                    <span className="text-[11px] font-bold text-gray-500 mt-1.5">
+                      {match.time}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Right: Rival Team */}
-            <div className="col-span-3 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 text-center sm:text-right">
-              <div>
-                <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight">
-                  {match.rival}
-                </h2>
-                <p className="text-[11px] sm:text-xs text-gray-400 font-semibold uppercase">
-                  Rival
-                </p>
-              </div>
+            {/* Right: Rival Team (Centered) */}
+            <div className="col-span-3 flex flex-col items-center justify-center text-center">
               <TeamCrest name={match.rival} isOurTeam={false} size="xl" className="flex-shrink-0" />
+              <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight mt-2 text-center max-w-[220px]">
+                {match.rival}
+              </h2>
             </div>
           </div>
 

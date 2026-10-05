@@ -582,8 +582,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       </span>
 
                       {/* Official Scoreboard */}
-                      <div className="bg-gray-900 text-white font-mono font-black text-sm sm:text-base px-3 py-1 rounded-xl shadow-xs">
-                        {hg} - {ag}
+                      <div className="bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white font-mono font-black text-xs sm:text-sm px-2.5 sm:px-3 py-1 rounded-xl shadow-sm border border-emerald-500/30 flex items-center gap-1 ring-1 ring-emerald-500/10">
+                        <span>{hg}</span>
+                        <span className="text-emerald-400 text-xs font-sans">-</span>
+                        <span>{ag}</span>
                       </div>
 
                       <span className="font-bold text-xs sm:text-sm text-gray-700 max-w-[100px] truncate">

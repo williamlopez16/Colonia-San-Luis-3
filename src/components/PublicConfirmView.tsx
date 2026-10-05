@@ -189,40 +189,41 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
             </div>
 
             {/* Clash: Team vs Rival with Crests */}
-            <div className="grid grid-cols-7 items-center gap-2 py-2">
-              {/* Left: Our Team */}
-              <div className="col-span-3 flex flex-col items-center text-center">
-                <TeamCrest name={team?.name || 'Club San Luis'} isOurTeam size="lg" />
-                <h1 className="text-sm sm:text-base font-black tracking-tight mt-1 leading-tight line-clamp-1">
-                  {team?.name || 'Club San Luis'}
+            <div className="grid grid-cols-7 items-center gap-2 py-3">
+              {/* Left: Home Team (Centered) */}
+              <div className="col-span-3 flex flex-col items-center justify-center text-center">
+                <TeamCrest name={team?.name || 'Colonia San Luis'} isOurTeam size="lg" />
+                <h1 className="text-xs sm:text-sm font-black tracking-tight mt-2 leading-tight text-center line-clamp-2 max-w-[180px]">
+                  {team?.name || 'Colonia San Luis'}
                 </h1>
-                <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider line-clamp-1">
-                  {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
-                </p>
               </div>
 
               {/* Center: VS or Score */}
               <div className="col-span-1 flex flex-col items-center justify-center">
                 {match.score?.isPlayed || match.matchState === 'Finalizado' ? (
-                  <div className="bg-black/50 text-white font-mono font-black text-lg sm:text-xl px-2.5 py-1 rounded-xl border border-white/20 text-center">
-                    {match.score?.homeGoals ?? 0} - {match.score?.awayGoals ?? 0}
+                  <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-2xl border border-emerald-400/40 text-center shadow-lg ring-1 ring-white/10">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-300 block mb-0.5">
+                      FINAL
+                    </span>
+                    <div className="flex items-center justify-center gap-1.5 font-mono font-black text-lg sm:text-2xl">
+                      <span>{match.score?.homeGoals ?? 0}</span>
+                      <span className="text-emerald-400 text-xs sm:text-sm font-sans">-</span>
+                      <span>{match.score?.awayGoals ?? 0}</span>
+                    </div>
                   </div>
                 ) : (
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white font-black text-xs flex items-center justify-center shadow-md border-2 border-emerald-400">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-md border-2 border-emerald-300/60">
                     VS
                   </div>
                 )}
               </div>
 
-              {/* Right: Rival */}
-              <div className="col-span-3 flex flex-col items-center text-center">
+              {/* Right: Rival Team (Centered) */}
+              <div className="col-span-3 flex flex-col items-center justify-center text-center">
                 <TeamCrest name={match.rival} isOurTeam={false} size="lg" />
-                <h2 className="text-sm sm:text-base font-black tracking-tight mt-1 leading-tight line-clamp-1">
+                <h2 className="text-xs sm:text-sm font-black tracking-tight mt-2 leading-tight text-center line-clamp-2 max-w-[180px]">
                   {match.rival}
                 </h2>
-                <span className="text-[10px] text-emerald-200/80 font-semibold uppercase">
-                  Rival
-                </span>
               </div>
             </div>
           </div>

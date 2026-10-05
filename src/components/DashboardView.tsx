@@ -232,37 +232,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Clash Area: Visual Shield vs Shield */}
           <div className="p-6 sm:p-8">
             <div className="grid grid-cols-7 items-center gap-3 sm:gap-6 py-2">
-              {/* Home: Our Team */}
-              <div className="col-span-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+              {/* Home Team (Centered) */}
+              <div className="col-span-3 flex flex-col items-center justify-center text-center">
                 <TeamCrest name={teamName} isOurTeam size="xl" className="flex-shrink-0" />
-                <div className="min-w-0">
-                  <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight truncate">
-                    {teamName}
-                  </h2>
-                  <span className="text-[10px] sm:text-[11px] text-emerald-700 font-bold uppercase tracking-wider block mt-0.5">
-                    Nuestro Equipo
-                  </span>
-                </div>
+                <h2 className="text-sm sm:text-lg md:text-xl font-black text-gray-900 leading-snug mt-2.5 text-center line-clamp-2 max-w-[220px]">
+                  {teamName}
+                </h2>
               </div>
 
-              {/* Center: VS Badge */}
+              {/* Center: Scoreboard or VS Badge */}
               <div className="col-span-1 flex flex-col items-center justify-center">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-700 text-white font-black text-sm sm:text-base flex items-center justify-center shadow-md border-2 border-emerald-500">
-                  VS
-                </div>
+                {nextMatch.score?.isPlayed || nextMatch.matchState === 'Finalizado' ? (
+                  <div className="flex flex-col items-center">
+                    <div className="relative bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white px-3.5 sm:px-6 py-2 sm:py-2.5 rounded-2xl shadow-xl border-2 border-emerald-500/40 text-center ring-1 ring-emerald-500/20">
+                      <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-0.5">
+                        FINAL
+                      </span>
+                      <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 font-mono font-black text-2xl sm:text-4xl tracking-tight">
+                        <span className="text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.25)]">
+                          {nextMatch.score?.homeGoals ?? 0}
+                        </span>
+                        <span className="text-emerald-500 text-base sm:text-2xl font-sans">-</span>
+                        <span className="text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.25)]">
+                          {nextMatch.score?.awayGoals ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-950 text-white flex flex-col items-center justify-center shadow-lg border-2 border-emerald-400/60 hover:scale-105 transition transform">
+                      <span className="font-black text-sm sm:text-lg tracking-wider drop-shadow-sm">VS</span>
+                    </div>
+                    {nextMatch.time && (
+                      <span className="text-[11px] font-bold text-gray-500 mt-1.5">
+                        {nextMatch.time}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Away: Rival Team */}
-              <div className="col-span-3 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-4 text-center sm:text-right">
-                <div className="min-w-0">
-                  <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight truncate">
-                    {nextMatch.rival}
-                  </h2>
-                  <span className="text-[10px] sm:text-[11px] text-gray-400 font-bold uppercase tracking-wider block mt-0.5">
-                    Rival
-                  </span>
-                </div>
+              {/* Away: Rival Team (Centered) */}
+              <div className="col-span-3 flex flex-col items-center justify-center text-center">
                 <TeamCrest name={nextMatch.rival} isOurTeam={false} size="xl" className="flex-shrink-0" />
+                <h2 className="text-sm sm:text-lg md:text-xl font-black text-gray-900 leading-snug mt-2.5 text-center line-clamp-2 max-w-[220px]">
+                  {nextMatch.rival}
+                </h2>
               </div>
             </div>
 

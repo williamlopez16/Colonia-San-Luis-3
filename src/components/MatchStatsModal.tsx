@@ -150,39 +150,35 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
           </div>
 
           {/* Match Clash Banner */}
-          <div className="grid grid-cols-7 items-center gap-2 py-2">
-            {/* Our Team */}
-            <div className="col-span-3 flex flex-col items-center text-center">
+          <div className="grid grid-cols-7 items-center gap-2 py-3">
+            {/* Home Team */}
+            <div className="col-span-3 flex flex-col items-center justify-center text-center">
               <TeamCrest name={teamName} isOurTeam size="lg" />
-              <h3 className="font-black text-sm sm:text-base mt-1.5 leading-tight line-clamp-1">
+              <h3 className="font-black text-xs sm:text-base mt-2 leading-tight line-clamp-2 text-center max-w-[180px]">
                 {teamName}
               </h3>
-              <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">
-                {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
-              </span>
             </div>
 
             {/* Scoreboard / VS */}
             <div className="col-span-1 flex flex-col items-center justify-center">
-              <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-center">
-                <span className="text-xs font-black tracking-widest text-emerald-300">
-                  {matchState === 'Finalizado' ? 'FINAL' : 'VS'}
+              <div className="bg-black/60 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-emerald-400/40 text-center shadow-lg ring-1 ring-white/10">
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-0.5">
+                  {matchState === 'Finalizado' ? 'FINAL' : 'EN VIVO'}
                 </span>
-                <div className="text-xl sm:text-2xl font-black text-white font-mono tracking-tighter">
-                  {homeGoals} - {awayGoals}
+                <div className="flex items-center justify-center gap-1.5 font-mono font-black text-xl sm:text-3xl text-white tracking-tight">
+                  <span>{homeGoals}</span>
+                  <span className="text-emerald-400 text-sm font-sans">-</span>
+                  <span>{awayGoals}</span>
                 </div>
               </div>
             </div>
 
             {/* Rival Team */}
-            <div className="col-span-3 flex flex-col items-center text-center">
+            <div className="col-span-3 flex flex-col items-center justify-center text-center">
               <TeamCrest name={match.rival} isOurTeam={false} size="lg" />
-              <h3 className="font-black text-sm sm:text-base mt-1.5 leading-tight line-clamp-1">
+              <h3 className="font-black text-xs sm:text-base mt-2 leading-tight line-clamp-2 text-center max-w-[180px]">
                 {match.rival}
               </h3>
-              <span className="text-[10px] text-emerald-200/80 font-semibold uppercase">
-                Rival
-              </span>
             </div>
           </div>
         </div>

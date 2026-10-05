@@ -181,46 +181,50 @@ export const MatchList: React.FC<MatchListProps> = ({
 
                 {/* 2. Visual Clash / Scoreboard Card */}
                 <div className="p-5 sm:p-6 bg-gradient-to-b from-white via-gray-50/40 to-white">
-                  <div className="grid grid-cols-7 items-center gap-2 sm:gap-4">
-                    {/* Left: Our Team */}
-                    <div className="col-span-3 flex items-center gap-3 sm:gap-4">
+                  <div className="grid grid-cols-7 items-center gap-2 sm:gap-4 py-1">
+                    {/* Left: Home Team (Centered) */}
+                    <div className="col-span-3 flex flex-col items-center justify-center text-center">
                       <TeamCrest name={teamName} isOurTeam size="lg" className="flex-shrink-0" />
-                      <div className="min-w-0">
-                        <h3 className="font-black text-gray-900 text-sm sm:text-base leading-tight truncate group-hover:text-emerald-700 transition">
-                          {teamName}
-                        </h3>
-                        <p className="text-[10px] sm:text-[11px] text-emerald-700 font-bold uppercase tracking-wider truncate">
-                          {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
-                        </p>
-                      </div>
+                      <h3 className="font-black text-gray-900 text-xs sm:text-base leading-tight mt-2 text-center group-hover:text-emerald-700 transition line-clamp-2 max-w-[200px]">
+                        {teamName}
+                      </h3>
                     </div>
 
-                    {/* Center: VS Emblem or Scoreboard */}
+                    {/* Center: Marcador / Scoreboard or VS */}
                     <div className="col-span-1 flex flex-col items-center justify-center">
                       {isFinished ? (
-                        <div className="bg-gray-950 text-white font-mono font-black text-lg sm:text-2xl px-3 sm:px-4 py-1.5 rounded-2xl shadow-md border border-gray-800 tracking-tight text-center">
-                          {homeScore} - {awayScore}
+                        <div className="flex flex-col items-center">
+                          <div className="relative bg-gradient-to-b from-gray-900 via-gray-950 to-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-2xl shadow-lg border border-emerald-500/40 text-center ring-1 ring-emerald-500/20">
+                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-0.5">
+                              FINAL
+                            </span>
+                            <div className="flex items-center justify-center gap-1.5 sm:gap-2 font-mono font-black text-xl sm:text-3xl tracking-tight">
+                              <span className="text-white drop-shadow-[0_1px_4px_rgba(255,255,255,0.25)]">{homeScore}</span>
+                              <span className="text-emerald-500 text-sm sm:text-lg font-sans">-</span>
+                              <span className="text-white drop-shadow-[0_1px_4px_rgba(255,255,255,0.25)]">{awayScore}</span>
+                            </div>
+                          </div>
                         </div>
                       ) : (
-                        <div className="relative flex items-center justify-center">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-md border-2 border-emerald-500 group-hover:scale-105 transition transform">
-                            VS
+                        <div className="flex flex-col items-center">
+                          <div className="w-10 h-10 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-950 text-white flex flex-col items-center justify-center shadow-md border-2 border-emerald-400/60 group-hover:scale-105 group-hover:border-emerald-300 transition transform">
+                            <span className="font-black text-xs sm:text-sm tracking-wider drop-shadow-sm">VS</span>
                           </div>
+                          {match.time && (
+                            <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 mt-1">
+                              {match.time}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Right: Rival Team */}
-                    <div className="col-span-3 flex items-center justify-end gap-3 sm:gap-4 text-right">
-                      <div className="min-w-0">
-                        <h3 className="font-black text-gray-900 text-sm sm:text-base leading-tight truncate group-hover:text-emerald-700 transition">
-                          {match.rival}
-                        </h3>
-                        <p className="text-[10px] sm:text-[11px] text-gray-400 font-semibold uppercase">
-                          Rival
-                        </p>
-                      </div>
+                    {/* Right: Rival Team (Centered) */}
+                    <div className="col-span-3 flex flex-col items-center justify-center text-center">
                       <TeamCrest name={match.rival} isOurTeam={false} size="lg" className="flex-shrink-0" />
+                      <h3 className="font-black text-gray-900 text-xs sm:text-base leading-tight mt-2 text-center group-hover:text-emerald-700 transition line-clamp-2 max-w-[200px]">
+                        {match.rival}
+                      </h3>
                     </div>
                   </div>
 
