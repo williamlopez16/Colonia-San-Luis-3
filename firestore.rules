@@ -27,6 +27,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Charges collection for financial management
+    match /charges/{chargeId} {
+      allow read, write: if true;
+    }
+
     // Fallback deny
     match /{document=**} {
       allow read, write: if false;

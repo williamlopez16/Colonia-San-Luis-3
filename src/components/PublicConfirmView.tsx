@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Match, Team, AttendanceStatus } from '../types';
 import { subscribeToMatch, updatePlayerAttendance } from '../services/dataService';
 import { formatMatchDate } from '../services/whatsappService';
+import { TeamCrest } from './TeamCrest';
 import {
   Calendar,
   Clock,
@@ -176,21 +177,54 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
       <div className="max-w-xl mx-auto space-y-5">
         {/* Match Header Card */}
         <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-200">
-          <div className="bg-gradient-to-r from-emerald-800 to-emerald-900 text-white p-6 text-center space-y-2">
-            <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold text-emerald-200">
-              <Trophy className="w-3.5 h-3.5 text-emerald-300" />
-              <span>{match.tournamentName || 'Torneo Oficial'}</span>
+          <div className="bg-gradient-to-r from-emerald-800 via-emerald-850 to-emerald-950 text-white p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold text-emerald-200">
+                <Trophy className="w-3.5 h-3.5 text-emerald-300" />
+                <span>{match.tournamentName || 'Torneo Oficial'}</span>
+              </div>
+              <span className="text-[11px] text-emerald-200/80 font-medium">
+                Convocatoria {match.status}
+              </span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-              {team?.name || 'Club San Luis'}
-            </h1>
-            <p className="text-[11px] sm:text-xs text-emerald-200 font-bold tracking-wider uppercase">
-              {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
-            </p>
-            <p className="text-emerald-200 font-bold text-sm">
-              VS  <span className="text-white underline decoration-emerald-400">{match.rival}</span>
-            </p>
+            {/* Clash: Team vs Rival with Crests */}
+            <div className="grid grid-cols-7 items-center gap-2 py-2">
+              {/* Left: Our Team */}
+              <div className="col-span-3 flex flex-col items-center text-center">
+                <TeamCrest name={team?.name || 'Club San Luis'} isOurTeam size="lg" />
+                <h1 className="text-sm sm:text-base font-black tracking-tight mt-1 leading-tight line-clamp-1">
+                  {team?.name || 'Club San Luis'}
+                </h1>
+                <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-wider line-clamp-1">
+                  {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
+                </p>
+              </div>
+
+              {/* Center: VS or Score */}
+              <div className="col-span-1 flex flex-col items-center justify-center">
+                {match.score?.isPlayed || match.matchState === 'Finalizado' ? (
+                  <div className="bg-black/50 text-white font-mono font-black text-lg sm:text-xl px-2.5 py-1 rounded-xl border border-white/20 text-center">
+                    {match.score?.homeGoals ?? 0} - {match.score?.awayGoals ?? 0}
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-700 text-white font-black text-xs flex items-center justify-center shadow-md border-2 border-emerald-400">
+                    VS
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Rival */}
+              <div className="col-span-3 flex flex-col items-center text-center">
+                <TeamCrest name={match.rival} isOurTeam={false} size="lg" />
+                <h2 className="text-sm sm:text-base font-black tracking-tight mt-1 leading-tight line-clamp-1">
+                  {match.rival}
+                </h2>
+                <span className="text-[10px] text-emerald-200/80 font-semibold uppercase">
+                  Rival
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Details Row */}

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { Team, Match, AttendanceStatus } from '../types';
+import { useAccessMode } from '../context/AccessModeContext';
+import { TeamCrest } from './TeamCrest';
 import {
   updatePlayerAttendance,
   closeMatchCallup,
@@ -30,6 +32,8 @@ import {
   Phone,
   Check,
   ExternalLink,
+  BarChart2,
+  Edit2,
 } from 'lucide-react';
 
 interface MatchAdminViewProps {
@@ -37,6 +41,8 @@ interface MatchAdminViewProps {
   match: Match;
   onBack: () => void;
   onOpenMatchdayGraphic: () => void;
+  onOpenMatchStats: () => void;
+  onEditMatch: () => void;
 }
 
 export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
@@ -44,7 +50,10 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
   match,
   onBack,
   onOpenMatchdayGraphic,
+  onOpenMatchStats,
+  onEditMatch,
 }) => {
+  const { isAdminMode } = useAccessMode();
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -155,72 +164,186 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
       )}
 
       {/* Main Match Header Card */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              {match.tournamentName && (
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                  <Trophy className="w-3.5 h-3.5 text-emerald-600" />
-                  {match.tournamentName}
-                </span>
-              )}
-              <span
-                className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg ${
-                  match.status === 'Abierta'
-                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                    : 'bg-gray-100 text-gray-700 border border-gray-200'
-                }`}
-              >
-                {match.status === 'Cerrada' && <Lock className="w-3.5 h-3.5" />}
-                Convocatoria {match.status}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-200 overflow-hidden">
+        {/* Top Badges */}
+        <div className="flex items-center justify-between flex-wrap gap-2 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            {match.tournamentName && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                <Trophy className="w-3.5 h-3.5 text-emerald-600" />
+                {match.tournamentName}
               </span>
+            )}
+            <span
+              className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg ${
+                match.status === 'Abierta'
+                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                  : 'bg-gray-100 text-gray-700 border border-gray-200'
+              }`}
+            >
+              {match.status === 'Cerrada' && <Lock className="w-3.5 h-3.5" />}
+              Convocatoria {match.status}
+            </span>
+            {(match.matchState === 'Finalizado' || match.score?.isPlayed) && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider bg-emerald-700 text-white px-2.5 py-1 rounded-lg shadow-2xs">
+                Finalizado
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Botón Editar Partido (solo admin) */}
+            {isAdminMode && (
+              <button
+                onClick={onEditMatch}
+                className="flex items-center gap-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 px-3.5 py-2 text-xs font-bold transition cursor-pointer border border-gray-200"
+                title="Editar fecha, lugar, valor de arbitraje o lista de convocados"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-gray-600" />
+                <span>Editar Partido</span>
+              </button>
+            )}
+
+            {/* Botón Cargar / Ver Estadísticas */}
+            <button
+              onClick={onOpenMatchStats}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
+            >
+              <BarChart2 className="w-4 h-4" />
+              <span>{isAdminMode ? 'Cargar Estadísticas' : 'Ver Estadísticas'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Visual Clash Section */}
+        <div className="py-6 px-2 sm:px-6 bg-gradient-to-b from-gray-50/50 to-white rounded-2xl my-3">
+          <div className="grid grid-cols-7 items-center gap-2 sm:gap-4">
+            {/* Left: Our Team */}
+            <div className="col-span-3 flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+              <TeamCrest name={team?.name || 'Club San Luis'} isOurTeam size="xl" className="flex-shrink-0" />
+              <div>
+                <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight">
+                  {team?.name || 'Club San Luis'}
+                </h2>
+                <p className="text-[11px] sm:text-xs text-emerald-700 font-bold uppercase tracking-wider">
+                  {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
+                </p>
+              </div>
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900">
-              {team?.name || 'Club San Luis'} <span className="text-gray-400 font-normal">VS</span>{' '}
-              <span className="text-emerald-700">{match.rival}</span>
-            </h2>
+            {/* Center: Scoreboard / VS */}
+            <div className="col-span-1 flex flex-col items-center justify-center">
+              {match.score?.isPlayed || match.matchState === 'Finalizado' ? (
+                <div className="bg-gray-950 text-white font-mono font-black text-xl sm:text-3xl px-3 sm:px-5 py-2 rounded-2xl shadow-lg border border-gray-800 text-center">
+                  {match.score?.homeGoals ?? 0} - {match.score?.awayGoals ?? 0}
+                </div>
+              ) : (
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-700 text-white font-black text-sm sm:text-base flex items-center justify-center shadow-md border-2 border-emerald-500">
+                  VS
+                </div>
+              )}
+            </div>
 
-            <div className="flex items-center gap-4 text-xs text-gray-600 flex-wrap pt-1">
-              <span className="flex items-center gap-1 font-medium">
-                <Calendar className="w-4 h-4 text-emerald-600" />
-                {formatMatchDate(match.date)}
-              </span>
-              {match.time && (
-                <span className="flex items-center gap-1 font-medium">
-                  <Clock className="w-4 h-4 text-emerald-600" />
-                  {match.time}
-                </span>
-              )}
-              {match.location && (
-                <span className="flex items-center gap-1 font-medium">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  {match.location}
-                </span>
-              )}
-              {match.refereeFee && (
-                <span className="flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-200">
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                  Arbitraje: {match.refereeFee}
-                </span>
-              )}
+            {/* Right: Rival Team */}
+            <div className="col-span-3 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 text-center sm:text-right">
+              <div>
+                <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight">
+                  {match.rival}
+                </h2>
+                <p className="text-[11px] sm:text-xs text-gray-400 font-semibold uppercase">
+                  Rival
+                </p>
+              </div>
+              <TeamCrest name={match.rival} isOurTeam={false} size="xl" className="flex-shrink-0" />
             </div>
           </div>
 
-          {/* Callup Status Switcher */}
-          <div className="flex items-center gap-2">
-            {match.status === 'Abierta' ? (
-              <button
-                onClick={handleCloseCallup}
-                disabled={isUpdatingStatus}
-                className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <Lock className="w-4 h-4" />
-                <span>Cerrar Convocatoria y Generar Cartelera</span>
-              </button>
-            ) : (
+          {/* Goal Scorers & Cards Summary if recorded */}
+          {(match.playerStats || []).some((p) => p.goals > 0 || p.assists > 0 || p.yellowCards > 0 || p.redCards > 0) && (
+            <div className="mt-4 pt-3 border-t border-gray-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-gray-700">Goleadores:</span>
+                {(match.playerStats || [])
+                  .filter((p) => p.goals > 0)
+                  .map((p) => (
+                    <span key={p.playerId} className="bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded-md border border-emerald-200">
+                      ⚽ {p.playerName} ({p.goals})
+                    </span>
+                  ))}
+              </div>
+
               <div className="flex items-center gap-2">
+                {(match.playerStats || []).some((p) => p.assists > 0) && (
+                  <span className="text-blue-700 font-semibold">
+                    👟 {(match.playerStats || []).filter((p) => p.assists > 0).reduce((s, p) => s + p.assists, 0)} asistencias
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Details Row & Callup Switcher */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+          <div className="flex items-center gap-4 text-xs text-gray-600 flex-wrap">
+            <span className="flex items-center gap-1 font-medium">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              {formatMatchDate(match.date)}
+            </span>
+            {match.time && (
+              <span className="flex items-center gap-1 font-medium">
+                <Clock className="w-4 h-4 text-emerald-600" />
+                {match.time}
+              </span>
+            )}
+            {match.location && (
+              <span className="flex items-center gap-1 font-medium">
+                <MapPin className="w-4 h-4 text-emerald-600" />
+                {match.location}
+              </span>
+            )}
+            {match.refereeFee && (
+              <span className="flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50/80 px-2.5 py-1 rounded-lg border border-emerald-200">
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                Arbitraje: {match.refereeFee}
+              </span>
+            )}
+          </div>
+
+          {/* Callup Status Switcher */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {isAdminMode ? (
+              match.status === 'Abierta' ? (
+                <button
+                  onClick={handleCloseCallup}
+                  disabled={isUpdatingStatus}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 text-xs font-bold shadow-xs transition cursor-pointer"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Cerrar Convocatoria y Generar Cartelera</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onOpenMatchdayGraphic}
+                    className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition cursor-pointer"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    <span>Ver Cartelera Matchday</span>
+                  </button>
+                  <button
+                    onClick={handleReopenCallup}
+                    disabled={isUpdatingStatus}
+                    className="flex items-center gap-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 text-xs font-semibold transition cursor-pointer"
+                    title="Reabrir convocatoria para recibir más confirmaciones"
+                  >
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>Reabrir</span>
+                  </button>
+                </div>
+              )
+            ) : (
+              match.status === 'Cerrada' && (
                 <button
                   onClick={onOpenMatchdayGraphic}
                   className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition cursor-pointer"
@@ -228,37 +351,32 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
                   <ImageIcon className="w-4 h-4" />
                   <span>Ver Cartelera Matchday</span>
                 </button>
-                <button
-                  onClick={handleReopenCallup}
-                  disabled={isUpdatingStatus}
-                  className="flex items-center gap-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 text-xs font-semibold transition cursor-pointer"
-                  title="Reabrir convocatoria para recibir más confirmaciones"
-                >
-                  <Unlock className="w-3.5 h-3.5" />
-                  <span>Reabrir</span>
-                </button>
-              </div>
+              )
             )}
           </div>
         </div>
 
         {/* WhatsApp & Share tools row */}
-        <div className="mt-6 pt-5 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <button
-            onClick={handleShareWhatsApp}
-            className="flex items-center justify-center gap-2 py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>Enviar a WhatsApp</span>
-          </button>
+        <div className="mt-6 pt-5 border-t border-gray-100 flex flex-wrap gap-2.5">
+          {isAdminMode && (
+            <>
+              <button
+                onClick={handleShareWhatsApp}
+                className="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Enviar Recordatorio WhatsApp</span>
+              </button>
 
-          <button
-            onClick={handleCopyWhatsApp}
-            className="flex items-center justify-center gap-2 py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-semibold transition cursor-pointer"
-          >
-            <Copy className="w-4 h-4 text-gray-600" />
-            <span>Copiar Mensaje WhatsApp</span>
-          </button>
+              <button
+                onClick={handleCopyWhatsApp}
+                className="flex items-center justify-center gap-2 py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                <Copy className="w-4 h-4 text-gray-600" />
+                <span>Copiar Mensaje WhatsApp</span>
+              </button>
+            </>
+          )}
 
           <button
             onClick={handleCopyLink}
@@ -325,7 +443,9 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
             Detalle de Convocados (Sincronizado en Tiempo Real)
           </h3>
           <span className="text-xs text-gray-400 font-medium">
-            Toca el botón de estado de un jugador para cambiarlo manualmente
+            {isAdminMode
+              ? 'Toca el botón de estado de un jugador para cambiarlo manualmente'
+              : 'Listado oficial de convocados y asistencia'}
           </span>
         </div>
 
@@ -357,24 +477,41 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
                 </div>
               </div>
 
-              {/* Status Badge & Manual Toggle */}
+              {/* Status Badge & Manual Toggle (button only for admin, badge for players) */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => handleTogglePlayerStatus(callup.playerId, callup.status)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                    callup.status === 'Confirmado'
-                      ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                      : callup.status === 'No asiste'
-                      ? 'bg-red-100 text-red-800 hover:bg-red-200'
-                      : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                  }`}
-                  title="Cambiar estado manualmente"
-                >
-                  {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                  {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
-                  {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
-                  <span>{callup.status}</span>
-                </button>
+                {isAdminMode ? (
+                  <button
+                    onClick={() => handleTogglePlayerStatus(callup.playerId, callup.status)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                      callup.status === 'Confirmado'
+                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                        : callup.status === 'No asiste'
+                        ? 'bg-red-100 text-red-800 hover:bg-red-200'
+                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                    }`}
+                    title="Cambiar estado manualmente"
+                  >
+                    {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
+                    {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
+                    <span>{callup.status}</span>
+                  </button>
+                ) : (
+                  <div
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 select-none ${
+                      callup.status === 'Confirmado'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : callup.status === 'No asiste'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
+                    {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
+                    <span>{callup.status}</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}

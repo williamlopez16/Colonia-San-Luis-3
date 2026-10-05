@@ -9,6 +9,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   deleteDoc,
   onSnapshot,
@@ -23,6 +24,13 @@ import type {
   Concept,
   Match,
   AttendanceStatus,
+  MatchScore,
+  MatchState,
+  PlayerMatchStats,
+  Charge,
+  ChargeType,
+  ChargeStatus,
+  PaymentMethod,
 } from '../types';
 
 export function generateUUID(): string {
@@ -70,6 +78,7 @@ const STORAGE_KEYS = {
   PLAYERS: 'cf_players_data',
   CONCEPTS: 'cf_concepts_data',
   MATCHES: 'cf_matches_data',
+  CHARGES: 'cf_charges_data',
 };
 
 export const DEFAULT_TEAM_ID = 'team-san-luis-01';
@@ -110,6 +119,7 @@ const INITIAL_TEAM: Team = {
   name: 'Club San Luis',
   category: 'Categoría Libre',
   slogan: 'LA PERLA BONITA DE ANTIOQUIA',
+  adminPassword: 'admin',
   primaryColor: '#15803d', // Verde
   secondaryColor: '#ffffff', // Blanco
   createdAt: new Date().toISOString(),
@@ -292,6 +302,19 @@ function getLocalConcepts(): Concept[] {
 function getLocalMatches(): Match[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(STORAGE_KEYS.MATCHES);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export function parseRefereeFee(feeStr: string | number | undefined): number {
+  if (typeof feeStr === 'number') return Math.max(0, feeStr);
+  if (!feeStr) return 0;
+  const digitsOnly = feeStr.replace(/[^0-9]/g, '');
+  return digitsOnly ? parseInt(digitsOnly, 10) : 0;
+}
+
+function getLocalCharges(): Charge[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
   return raw ? JSON.parse(raw) : [];
 }
 
@@ -560,6 +583,19 @@ export async function deletePlayer(playerId: string): Promise<void> {
   const targetDb = db;
   if (targetDb) {
     await deleteDoc(doc(targetDb, 'players', playerId));
+  }
+
+  // Clean up pending charges for this player
+  try {
+    const charges = getLocalCharges();
+    const pendingPlayerCharges = charges.filter(
+      (c) => c.playerId === playerId && c.status === 'Pendiente'
+    );
+    for (const c of pendingPlayerCharges) {
+      await deleteCharge(c.id);
+    }
+  } catch (err) {
+    console.warn('Error cleaning up charges for deleted player:', err);
   }
 }
 
@@ -875,6 +911,60 @@ export async function deleteMatch(matchId: string): Promise<void> {
   if (targetDb) {
     await deleteDoc(doc(targetDb, 'matches', matchId));
   }
+
+  // Clean up pending arbitraje charges associated with this match
+  try {
+    const charges = getLocalCharges();
+    const pendingMatchCharges = charges.filter(
+      (c) => c.matchId === matchId && c.type === 'arbitraje' && c.status === 'Pendiente'
+    );
+    for (const c of pendingMatchCharges) {
+      await deleteCharge(c.id);
+    }
+  } catch (err) {
+    console.warn('Error cleaning up charges for deleted match:', err);
+  }
+}
+
+/**
+ * Save match result and player match statistics (goals, assists, cards)
+ */
+export async function saveMatchStats(
+  matchId: string,
+  score: MatchScore,
+  matchState: MatchState,
+  playerStats: PlayerMatchStats[]
+): Promise<void> {
+  const targetDb = db;
+  let matchToUpdate: Match | null = null;
+
+  if (targetDb) {
+    try {
+      const docRef = doc(targetDb, 'matches', matchId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        matchToUpdate = snap.data() as Match;
+      }
+    } catch (err) {
+      console.warn('Error reading match for stats update:', err);
+    }
+  }
+
+  if (!matchToUpdate) {
+    const list = getLocalMatches();
+    matchToUpdate = list.find((m) => m.id === matchId) || null;
+  }
+
+  if (!matchToUpdate) {
+    throw new Error('Partido no encontrado para guardar estadísticas');
+  }
+
+  matchToUpdate.score = score;
+  matchToUpdate.matchState = matchState;
+  matchToUpdate.playerStats = playerStats;
+  matchToUpdate.updatedAt = new Date().toISOString();
+
+  await saveMatch(matchToUpdate);
 }
 
 /**
@@ -1006,4 +1096,301 @@ export async function reopenMatchCallup(matchId: string): Promise<Match> {
   }
 
   return match;
+}
+
+// ==========================================
+// 6. CHARGES & FINANCIAL OPERATIONS
+// ==========================================
+
+export function subscribeToCharges(
+  _teamId: string,
+  callback: (charges: Charge[]) => void
+): Unsubscribe {
+  // 1. Initial cached data
+  const localList = getLocalCharges();
+  localList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  callback(localList);
+
+  const handleMessage = (e: MessageEvent) => {
+    if (e.data?.topic === 'charges') {
+      const current = getLocalCharges();
+      current.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(current);
+    }
+  };
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEYS.CHARGES) {
+      const current = getLocalCharges();
+      current.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(current);
+    }
+  };
+
+  syncChannel?.addEventListener('message', handleMessage);
+  window.addEventListener('storage', handleStorage);
+
+  let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
+
+  // 2. Real-time Firestore sync
+  if (targetDb) {
+    try {
+      firestoreUnsub = onSnapshot(
+        collection(targetDb, 'charges'),
+        (snapshot) => {
+          const remoteList = snapshot.docs.map((d) => d.data() as Charge);
+          remoteList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+          localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(remoteList));
+          callback(remoteList);
+
+          // If remote is empty but local has unsynced charges, upload them
+          if (snapshot.empty) {
+            const currentLocal = getLocalCharges();
+            if (currentLocal.length > 0) {
+              currentLocal.forEach((c) => {
+                setDoc(doc(targetDb, 'charges', c.id), cleanForFirestore(c)).catch(() => {});
+              });
+            }
+          }
+        },
+        (error) => {
+          console.warn('Charges Cloud Firestore subscription warning:', error);
+          const current = getLocalCharges();
+          current.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          callback(current);
+        }
+      );
+    } catch (err) {
+      console.warn('Charges listen error:', err);
+    }
+  }
+
+  return () => {
+    firestoreUnsub?.();
+    syncChannel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+export async function saveCharge(charge: Charge): Promise<void> {
+  const updated: Charge = {
+    ...charge,
+    id: charge.id || generateUUID(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  let list: Charge[] = raw ? JSON.parse(raw) : [];
+  const index = list.findIndex((c) => c.id === updated.id);
+  if (index >= 0) {
+    list[index] = updated;
+  } else {
+    list.unshift(updated);
+  }
+
+  localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(list));
+  notifySync('charges');
+
+  const targetDb = db;
+  if (targetDb) {
+    const docRef = doc(targetDb, 'charges', updated.id);
+    await setDoc(docRef, cleanForFirestore(updated));
+  }
+}
+
+export async function saveChargesBatch(charges: Charge[]): Promise<void> {
+  if (charges.length === 0) return;
+
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  let list: Charge[] = raw ? JSON.parse(raw) : [];
+
+  const now = new Date().toISOString();
+  const prepared: Charge[] = charges.map((c) => ({
+    ...c,
+    id: c.id || generateUUID(),
+    createdAt: c.createdAt || now,
+    updatedAt: now,
+  }));
+
+  prepared.forEach((item) => {
+    const index = list.findIndex((c) => c.id === item.id);
+    if (index >= 0) {
+      list[index] = item;
+    } else {
+      list.unshift(item);
+    }
+  });
+
+  localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(list));
+  notifySync('charges');
+
+  const targetDb = db;
+  if (targetDb) {
+    for (const item of prepared) {
+      const docRef = doc(targetDb, 'charges', item.id);
+      await setDoc(docRef, cleanForFirestore(item));
+    }
+  }
+}
+
+export async function markChargePaid(
+  chargeId: string,
+  paymentMethod: PaymentMethod
+): Promise<void> {
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  let list: Charge[] = raw ? JSON.parse(raw) : [];
+  const charge = list.find((c) => c.id === chargeId);
+
+  if (!charge) {
+    throw new Error('Cobro no encontrado');
+  }
+
+  const updated: Charge = {
+    ...charge,
+    status: 'Pagado',
+    paymentMethod,
+    paidAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const index = list.findIndex((c) => c.id === chargeId);
+  list[index] = updated;
+  localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(list));
+  notifySync('charges');
+
+  const targetDb = db;
+  if (targetDb) {
+    const docRef = doc(targetDb, 'charges', chargeId);
+    await setDoc(docRef, cleanForFirestore(updated));
+  }
+}
+
+export async function markChargePending(chargeId: string): Promise<void> {
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  let list: Charge[] = raw ? JSON.parse(raw) : [];
+  const charge = list.find((c) => c.id === chargeId);
+
+  if (!charge) {
+    throw new Error('Cobro no encontrado');
+  }
+
+  const updated: Charge = {
+    ...charge,
+    status: 'Pendiente',
+    paymentMethod: undefined,
+    paidAt: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const index = list.findIndex((c) => c.id === chargeId);
+  list[index] = updated;
+  localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(list));
+  notifySync('charges');
+
+  const targetDb = db;
+  if (targetDb) {
+    const docRef = doc(targetDb, 'charges', chargeId);
+    await setDoc(docRef, cleanForFirestore(updated));
+  }
+}
+
+export async function deleteCharge(chargeId: string): Promise<void> {
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  if (raw) {
+    const list: Charge[] = JSON.parse(raw);
+    const filtered = list.filter((c) => c.id !== chargeId);
+    localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(filtered));
+    notifySync('charges');
+  }
+
+  const targetDb = db;
+  if (targetDb) {
+    await deleteDoc(doc(targetDb, 'charges', chargeId));
+  }
+}
+
+/**
+ * Automatically syncs referee fee charges for a match.
+ * Generates/updates charges following strict financial rules:
+ * - 1 Charge of type 'arbitraje' per called-up player with amount = parseRefereeFee(match.refereeFee)
+ * - If callup list changes:
+ *   - New player added: creates a new pending charge
+ *   - Player removed: deletes the pending charge (keeps paid ones)
+ * - If referee fee changes:
+ *   - Updates amount for pending charges (leaves paid charges untouched)
+ */
+export async function syncMatchRefereeCharges(match: Match): Promise<void> {
+  const amount = parseRefereeFee(match.refereeFee);
+  const targetDb = db;
+
+  let allCharges: Charge[] = [];
+
+  if (targetDb) {
+    try {
+      const snap = await getDocs(collection(targetDb, 'charges'));
+      allCharges = snap.docs.map((d) => d.data() as Charge);
+    } catch {
+      allCharges = getLocalCharges();
+    }
+  } else {
+    allCharges = getLocalCharges();
+  }
+
+  // Charges belonging to this match
+  const existingMatchCharges = allCharges.filter(
+    (c) => c.matchId === match.id && c.type === 'arbitraje'
+  );
+
+  const currentCallupMap = new Map(match.callups.map((c) => [c.playerId, c]));
+  const existingPlayerMap = new Map(existingMatchCharges.map((c) => [c.playerId, c]));
+
+  // 1. Remove pending charges for players no longer in callups
+  for (const existingCharge of existingMatchCharges) {
+    if (!currentCallupMap.has(existingCharge.playerId)) {
+      if (existingCharge.status === 'Pendiente') {
+        await deleteCharge(existingCharge.id);
+      }
+    }
+  }
+
+  // 2. Update fee for existing pending charges if referee fee changed
+  for (const existingCharge of existingMatchCharges) {
+    if (currentCallupMap.has(existingCharge.playerId)) {
+      if (existingCharge.status === 'Pendiente' && existingCharge.amount !== amount) {
+        await saveCharge({
+          ...existingCharge,
+          amount,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+  }
+
+  // 3. Create new charges for newly added players
+  const newCharges: Charge[] = [];
+  const now = new Date().toISOString();
+
+  for (const callup of match.callups) {
+    if (!existingPlayerMap.has(callup.playerId)) {
+      newCharges.push({
+        id: generateUUID(),
+        teamId: match.teamId,
+        playerId: callup.playerId,
+        playerName: callup.fullName,
+        jerseyNumber: callup.jerseyNumber,
+        conceptName: 'Arbitraje',
+        type: 'arbitraje',
+        matchId: match.id,
+        amount,
+        status: 'Pendiente',
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  if (newCharges.length > 0) {
+    await saveChargesBatch(newCharges);
+  }
 }

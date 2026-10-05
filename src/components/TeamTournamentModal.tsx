@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { Team, Tournament } from '../types';
+import { useAccessMode } from '../context/AccessModeContext';
 import { saveTeam, saveTournament, generateUUID, getActiveTeamId } from '../services/dataService';
-import { Shield, Trophy, Plus, Save, AlertCircle, Check } from 'lucide-react';
+import { Shield, Trophy, Plus, Save, AlertCircle, Check, Lock, Key } from 'lucide-react';
 
 interface TeamTournamentModalProps {
   team: Team | null;
@@ -16,10 +17,14 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
   onClose,
   isInitialSetup = false,
 }) => {
+  const { isAdminMode } = useAccessMode();
+  const canEdit = isAdminMode || isInitialSetup;
+
   // Team form state
   const [teamName, setTeamName] = useState<string>(team?.name || 'Club San Luis');
   const [category, setCategory] = useState<string>(team?.category || 'Categoría Libre');
   const [slogan, setSlogan] = useState<string>(team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA');
+  const [adminPassword, setAdminPassword] = useState<string>(team?.adminPassword || 'admin');
   const [primaryColor, setPrimaryColor] = useState<string>(team?.primaryColor || '#15803d');
   const [secondaryColor, setSecondaryColor] = useState<string>(team?.secondaryColor || '#ffffff');
 
@@ -38,12 +43,17 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
 
   const handleSaveTeam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) {
+      setTeamError('Solo los usuarios en Modo Administrador pueden modificar los datos del equipo.');
+      return;
+    }
     setTeamError(null);
     setSuccessMessage(null);
 
     // Validation
     const trimmedName = teamName.trim();
     const trimmedCategory = category.trim();
+    const trimmedPassword = adminPassword.trim();
 
     if (!trimmedName || trimmedName.length < 2) {
       setTeamError('El nombre del equipo es obligatorio y debe tener al menos 2 caracteres.');
@@ -51,6 +61,10 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
     }
     if (!trimmedCategory) {
       setTeamError('La categoría del equipo es obligatoria.');
+      return;
+    }
+    if (!trimmedPassword || trimmedPassword.length < 4) {
+      setTeamError('La clave de administrador/DT es obligatoria y debe tener mínimo 4 caracteres.');
       return;
     }
 
@@ -61,6 +75,7 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
         name: trimmedName,
         category: trimmedCategory,
         slogan: slogan.trim() || 'LA PERLA BONITA DE ANTIOQUIA',
+        adminPassword: trimmedPassword,
         primaryColor,
         secondaryColor,
         createdAt: team?.createdAt || new Date().toISOString(),
@@ -207,6 +222,38 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
               </div>
             </div>
 
+            {/* Admin Password Field */}
+            {canEdit && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Clave de Administrador / DT *</span>
+                </label>
+                <input
+                  type="text"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Mínimo 4 caracteres (ej. admin o clave propia)"
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2.5 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden transition font-mono"
+                  required
+                  minLength={4}
+                  disabled={!canEdit}
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Esta clave permite desbloquear las acciones de edición en la aplicación.
+                </p>
+              </div>
+            )}
+
+            {!canEdit && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <span>
+                  Estás en <strong>Modo Jugador (solo lectura)</strong>. Para editar los datos del equipo o la clave, activa el Modo Administrador desde el candado en la barra superior.
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -217,7 +264,8 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
                     type="color"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="w-10 h-10 rounded-lg cursor-pointer border border-gray-200 p-0.5"
+                    disabled={!canEdit}
+                    className="w-10 h-10 rounded-lg cursor-pointer border border-gray-200 p-0.5 disabled:opacity-50"
                   />
                   <span className="text-xs text-gray-600 font-mono">{primaryColor}</span>
                   <span className="text-xs text-emerald-700 font-medium bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
@@ -235,7 +283,8 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
                     type="color"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
-                    className="w-10 h-10 rounded-lg cursor-pointer border border-gray-200 p-0.5"
+                    disabled={!canEdit}
+                    className="w-10 h-10 rounded-lg cursor-pointer border border-gray-200 p-0.5 disabled:opacity-50"
                   />
                   <span className="text-xs text-gray-600 font-mono">{secondaryColor}</span>
                   <span className="text-xs text-gray-700 font-medium bg-gray-100 px-2 py-1 rounded-md border border-gray-200">
@@ -245,16 +294,18 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={isSavingTeam}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-semibold shadow-sm transition disabled:opacity-50 cursor-pointer"
-              >
-                <Save className="w-4 h-4" />
-                <span>{isSavingTeam ? 'Guardando...' : 'Guardar Datos del Equipo'}</span>
-              </button>
-            </div>
+            {canEdit && (
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingTeam}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 text-sm font-semibold shadow-sm transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSavingTeam ? 'Guardando...' : 'Guardar Datos del Equipo'}</span>
+                </button>
+              </div>
+            )}
           </form>
         </div>
 
@@ -273,7 +324,7 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
               </p>
             </div>
 
-            {!showAddTournament && (
+            {!showAddTournament && canEdit && (
               <button
                 onClick={() => setShowAddTournament(true)}
                 className="flex items-center gap-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-3.5 py-2 text-xs font-semibold border border-emerald-200 transition cursor-pointer"

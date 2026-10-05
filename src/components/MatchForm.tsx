@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Team, Tournament, Player, Concept, Match, Callup } from '../types';
-import { saveMatch, saveTournament, generateUUID } from '../services/dataService';
+import { saveMatch, saveTournament, generateUUID, syncMatchRefereeCharges } from '../services/dataService';
 import {
   Calendar,
   Clock,
@@ -13,6 +13,7 @@ import {
   X,
   CheckSquare,
   Square,
+  Edit2,
 } from 'lucide-react';
 
 interface MatchFormProps {
@@ -20,6 +21,7 @@ interface MatchFormProps {
   tournaments: Tournament[];
   players: Player[];
   concepts: Concept[];
+  matchToEdit?: Match | null;
   onMatchCreated: (match: Match) => void;
   onCancel: () => void;
 }
@@ -29,9 +31,12 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   tournaments,
   players,
   concepts,
+  matchToEdit,
   onMatchCreated,
   onCancel,
 }) => {
+  const isEditMode = !!matchToEdit;
+
   // Default values
   const defaultArbitration = concepts.find((c) => c.isDefaultArbitration);
   const defaultFeeString = defaultArbitration
@@ -41,28 +46,38 @@ export const MatchForm: React.FC<MatchFormProps> = ({
     : '$12.000';
 
   // Form states
-  const [selectedTournamentId, setSelectedTournamentId] = useState<string>(
-    tournaments.length > 0 ? tournaments[0].id : ''
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>(() => {
+    if (matchToEdit?.tournamentId) return matchToEdit.tournamentId;
+    return tournaments.length > 0 ? tournaments[0].id : '';
+  });
+  const [isCreatingNewTourn, setIsCreatingNewTourn] = useState<boolean>(
+    !matchToEdit && tournaments.length === 0
   );
-  const [isCreatingNewTourn, setIsCreatingNewTourn] = useState<boolean>(tournaments.length === 0);
   const [newTournName, setNewTournName] = useState<string>('');
 
-  const [rival, setRival] = useState<string>('');
+  const [rival, setRival] = useState<string>(matchToEdit?.rival || '');
   const [date, setDate] = useState<string>(() => {
-    // Default to upcoming Saturday or tomorrow
+    if (matchToEdit?.date) return matchToEdit.date;
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return d.toISOString().split('T')[0];
   });
-  const [time, setTime] = useState<string>('19:30');
-  const [location, setLocation] = useState<string>('Cancha Sintética Municipal San Luis');
-  const [refereeFee, setRefereeFee] = useState<string>(defaultFeeString);
-
-  // Active players pre-selected by default
-  const activePlayers = players.filter((p) => p.status === 'Activo');
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(
-    new Set(activePlayers.map((p) => p.id))
+  const [time, setTime] = useState<string>(matchToEdit?.time || '19:30');
+  const [location, setLocation] = useState<string>(
+    matchToEdit?.location || 'Cancha Sintética Municipal San Luis'
   );
+  const [refereeFee, setRefereeFee] = useState<string>(
+    matchToEdit?.refereeFee || defaultFeeString
+  );
+
+  // Players selection
+  const activePlayers = players.filter((p) => p.status === 'Activo');
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(() => {
+    if (matchToEdit && matchToEdit.callups.length > 0) {
+      return new Set(matchToEdit.callups.map((c) => c.playerId));
+    }
+    return new Set(activePlayers.map((p) => p.id));
+  });
 
   // Status & error handling
   const [formError, setFormError] = useState<string | null>(null);
@@ -151,15 +166,19 @@ export const MatchForm: React.FC<MatchFormProps> = ({
     }
 
     // Prepare Callup array
+    const existingCallupMap = new Map((matchToEdit?.callups || []).map((c) => [c.playerId, c]));
     const callups: Callup[] = [];
     players.forEach((p) => {
       if (selectedPlayerIds.has(p.id)) {
+        const existingCallup = existingCallupMap.get(p.id);
         callups.push({
           playerId: p.id,
           fullName: p.fullName,
           jerseyNumber: p.jerseyNumber,
           phone: p.phone,
-          status: 'Pendiente', // Initial attendance status
+          status: existingCallup ? existingCallup.status : 'Pendiente',
+          reason: existingCallup?.reason,
+          confirmedAt: existingCallup?.confirmedAt,
         });
       }
     });
@@ -169,8 +188,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      const newMatch: Match = {
-        id: generateUUID(),
+      const savedMatch: Match = {
+        ...matchToEdit,
+        id: matchToEdit ? matchToEdit.id : generateUUID(),
         teamId: team.id,
         tournamentId: finalTournamentId,
         tournamentName: finalTournamentName,
@@ -179,16 +199,17 @@ export const MatchForm: React.FC<MatchFormProps> = ({
         time: time.trim(),
         location: location.trim(),
         refereeFee: refereeFee.trim(),
-        status: 'Abierta',
+        status: matchToEdit ? matchToEdit.status : 'Abierta',
         callups,
-        createdAt: new Date().toISOString(),
+        createdAt: matchToEdit ? matchToEdit.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      await saveMatch(newMatch);
-      onMatchCreated(newMatch);
+      await saveMatch(savedMatch);
+      await syncMatchRefereeCharges(savedMatch);
+      onMatchCreated(savedMatch);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Error al programar el partido.');
+      setFormError(err instanceof Error ? err.message : 'Error al guardar el partido.');
     } finally {
       setIsSubmitting(false);
     }
@@ -200,12 +221,20 @@ export const MatchForm: React.FC<MatchFormProps> = ({
       <div className="bg-emerald-800 text-white p-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-white/10 rounded-xl">
-            <Calendar className="w-5 h-5 text-emerald-200" />
+            {isEditMode ? (
+              <Edit2 className="w-5 h-5 text-emerald-200" />
+            ) : (
+              <Calendar className="w-5 h-5 text-emerald-200" />
+            )}
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold">Programar Partido y Convocatoria</h2>
+            <h2 className="text-base sm:text-lg font-bold">
+              {isEditMode ? 'Editar Partido y Convocatoria' : 'Programar Partido y Convocatoria'}
+            </h2>
             <p className="text-xs text-emerald-200">
-              Crea el partido, selecciona a los jugadores convocados y genera el enlace y WhatsApp
+              {isEditMode
+                ? 'Actualiza los datos del partido, la lista de convocados y los cobros de arbitraje'
+                : 'Crea el partido, selecciona a los jugadores convocados y genera el enlace y WhatsApp'}
             </p>
           </div>
         </div>
@@ -465,7 +494,11 @@ export const MatchForm: React.FC<MatchFormProps> = ({
             disabled={isSubmitting}
             className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50 cursor-pointer"
           >
-            {isSubmitting ? 'Guardando Convocatoria...' : 'Guardar y Generar Convocatoria 📋'}
+            {isSubmitting
+              ? 'Guardando...'
+              : isEditMode
+              ? 'Guardar Cambios del Partido 💾'
+              : 'Guardar y Generar Convocatoria 📋'}
           </button>
         </div>
       </form>

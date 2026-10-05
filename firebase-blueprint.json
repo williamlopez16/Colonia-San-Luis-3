@@ -83,6 +83,28 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "teamId", "rival", "date", "status"]
+    },
+    "Charge": {
+      "title": "Charge",
+      "description": "Cobro individual a jugador (arbitraje por partido o concepto esporádico)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "teamId": { "type": "string" },
+        "playerId": { "type": "string" },
+        "playerName": { "type": "string", "maxLength": 100 },
+        "jerseyNumber": { "type": "number" },
+        "conceptName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "type": { "type": "string", "enum": ["arbitraje", "esporadico"] },
+        "matchId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendiente", "Pagado"] },
+        "paymentMethod": { "type": "string", "enum": ["Nequi", "Daviplata", "Efectivo", "Transferencia", "Otro"] },
+        "paidAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "teamId", "playerId", "playerName", "jerseyNumber", "conceptName", "type", "amount", "status"]
     }
   },
   "firestore": {
@@ -105,6 +127,10 @@
     "/matches/{matchId}": {
       "schema": { "$ref": "#/entities/Match" },
       "description": "Colección de partidos y convocatorias"
+    },
+    "/charges/{chargeId}": {
+      "schema": { "$ref": "#/entities/Charge" },
+      "description": "Colección de cobros de arbitraje y conceptos esporádicos"
     }
   }
 }

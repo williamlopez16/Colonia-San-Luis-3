@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { Player, PlayerStatus, Team } from '../types';
+import type { Player, PlayerStatus, Team, Charge } from '../types';
+import { useAccessMode } from '../context/AccessModeContext';
 import { savePlayer, deletePlayer, generateUUID } from '../services/dataService';
 import {
   Users,
@@ -13,14 +14,27 @@ import {
   AlertCircle,
   X,
   HeartPulse,
+  DollarSign,
+  Plus,
 } from 'lucide-react';
 
 interface PlayerManagementProps {
   team: Team | null;
   players: Player[];
+  charges: Charge[];
+  onOpenPlayerFinance: (player: Player) => void;
+  onAddChargeForPlayer: (player: Player) => void;
 }
 
-export const PlayerManagement: React.FC<PlayerManagementProps> = ({ team, players }) => {
+export const PlayerManagement: React.FC<PlayerManagementProps> = ({
+  team,
+  players,
+  charges,
+  onOpenPlayerFinance,
+  onAddChargeForPlayer,
+}) => {
+  const { isAdminMode } = useAccessMode();
+
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | PlayerStatus>('Todos');
@@ -190,13 +204,15 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({ team, player
             </span>
           </div>
 
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-semibold shadow-xs transition cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Agregar Jugador</span>
-          </button>
+          {isAdminMode && (
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Agregar Jugador</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -241,105 +257,158 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({ team, player
             </p>
           </div>
         ) : (
-          filteredPlayers.map((player) => (
-            <div
-              key={player.id}
-              className="bg-white rounded-xl p-4 border border-gray-200 hover:border-emerald-300 transition shadow-2xs flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-3">
-                    {/* Circular Jersey Badge */}
-                    <div className="w-10 h-10 rounded-full bg-emerald-700 text-white font-black text-base flex items-center justify-center shadow-xs flex-shrink-0 border-2 border-emerald-900">
-                      {player.jerseyNumber}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-sm leading-tight">
-                        {player.fullName}
-                      </h3>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            player.status === 'Activo'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : player.status === 'Lesionado'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {player.status}
-                        </span>
-                        {player.eps && (
-                          <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                            {player.eps}
+          filteredPlayers.map((player) => {
+            const playerCharges = charges.filter((c) => c.playerId === player.id);
+            const pendingAmount = playerCharges
+              .filter((c) => c.status === 'Pendiente')
+              .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+            const formatAmount = (val: number) =>
+              new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                maximumFractionDigits: 0,
+              }).format(val);
+
+            return (
+              <div
+                key={player.id}
+                className="bg-white rounded-xl p-4 border border-gray-200 hover:border-emerald-300 transition shadow-2xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-3">
+                      {/* Circular Jersey Badge */}
+                      <div className="w-10 h-10 rounded-full bg-emerald-700 text-white font-black text-base flex items-center justify-center shadow-xs flex-shrink-0 border-2 border-emerald-900">
+                        {player.jerseyNumber}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-sm leading-tight">
+                          {player.fullName}
+                        </h3>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              player.status === 'Activo'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : player.status === 'Lesionado'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {player.status}
                           </span>
-                        )}
+                          {player.eps && (
+                            <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                              {player.eps}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="space-y-1 text-xs text-gray-600 mt-3 pt-2 border-t border-gray-100">
-                  <div className="flex items-center gap-1.5 text-gray-700">
-                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>WhatsApp: {player.phone}</span>
-                  </div>
-                  {player.idCard && (
-                    <div className="flex items-center gap-1.5 text-gray-500 text-[11px]">
-                      <span>Cédula: {player.idCard}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100">
-                <a
-                  href={`https://wa.me/57${player.phone.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                >
-                  <Phone className="w-3 h-3" /> Escribir
-                </a>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEditModal(player)}
-                    className="p-1.5 text-gray-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition cursor-pointer"
-                    title="Editar jugador"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  {deleteConfirmId === player.id ? (
-                    <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg">
-                      <button
-                        onClick={() => handleDeletePlayer(player.id)}
-                        className="text-[11px] font-bold text-red-700 px-1.5 py-0.5 hover:underline cursor-pointer"
-                      >
-                        ¿Eliminar?
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmId(null)}
-                        className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
+                    {/* Financial Status Pill */}
                     <button
-                      onClick={() => setDeleteConfirmId(player.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition cursor-pointer"
-                      title="Eliminar jugador"
+                      onClick={() => onOpenPlayerFinance(player)}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer flex items-center gap-1 ${
+                        pendingAmount > 0
+                          ? 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                      title="Ver estado de cuenta y cobros"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <DollarSign className="w-3 h-3 text-emerald-600" />
+                      <span>{pendingAmount > 0 ? `Debe ${formatAmount(pendingAmount)}` : 'Al día ✓'}</span>
                     </button>
-                  )}
+                  </div>
+
+                  <div className="space-y-1 text-xs text-gray-600 mt-3 pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-1.5 text-gray-700">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>WhatsApp: {player.phone}</span>
+                    </div>
+                    {player.idCard && (
+                      <div className="flex items-center gap-1.5 text-gray-500 text-[11px]">
+                        <span>Cédula: {player.idCard}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100">
+                  <a
+                    href={`https://wa.me/57${player.phone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+                  >
+                    <Phone className="w-3 h-3" /> Escribir
+                  </a>
+
+                  <div className="flex items-center gap-1">
+                    {/* Botón Ver Finanzas (visible para todos) */}
+                    <button
+                      onClick={() => onOpenPlayerFinance(player)}
+                      className="p-1.5 text-gray-500 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 transition cursor-pointer"
+                      title="Ver ficha de cobros y pagos del jugador"
+                    >
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                    </button>
+
+                    {/* Acciones exclusivas de Modo Administrador */}
+                    {isAdminMode && (
+                      <>
+                        {/* Botón + Cobro */}
+                        <button
+                          onClick={() => onAddChargeForPlayer(player)}
+                          className="p-1.5 text-gray-500 hover:text-emerald-800 rounded-lg hover:bg-emerald-50 transition cursor-pointer"
+                          title="Agregar cobro individual a este jugador"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+
+                        {/* Botón Editar */}
+                        <button
+                          onClick={() => openEditModal(player)}
+                          className="p-1.5 text-gray-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition cursor-pointer"
+                          title="Editar jugador"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Botón Eliminar */}
+                        {deleteConfirmId === player.id ? (
+                          <div className="flex items-center gap-1 bg-red-50 p-1 rounded-lg">
+                            <button
+                              onClick={() => handleDeletePlayer(player.id)}
+                              className="text-[11px] font-bold text-red-700 px-1.5 py-0.5 hover:underline cursor-pointer"
+                            >
+                              ¿Eliminar?
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirmId(player.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                            title="Eliminar jugador"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

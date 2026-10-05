@@ -14,6 +14,7 @@ export interface Team {
   name: string;
   category: string;
   slogan?: string;
+  adminPassword?: string; // Clave de modo gestión (administrador/DT)
   primaryColor: string; // Hex color, e.g. #15803d
   secondaryColor: string; // Hex color, e.g. #ffffff
   createdAt: string;
@@ -63,17 +64,40 @@ export interface Callup {
   confirmedAt?: string;
 }
 
+export type MatchState = 'Programado' | 'Finalizado';
+
+export interface MatchScore {
+  homeGoals: number; // Goles de nuestro equipo
+  awayGoals: number; // Goles del rival
+  isPlayed?: boolean;
+}
+
+export interface PlayerMatchStats {
+  playerId: string;
+  playerName: string;
+  jerseyNumber: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+}
+
 export interface Match {
   id: string;
   teamId: string;
   tournamentId: string;
   tournamentName: string;
   rival: string;
+  rivalLogo?: string;
+  teamLogo?: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   location: string;
   refereeFee: string; // Pre-filled formatted currency string, e.g. "$12.000"
   status: MatchStatus;
+  matchState?: MatchState;
+  score?: MatchScore;
+  playerStats?: PlayerMatchStats[];
   callups: Callup[];
   createdAt: string;
   updatedAt: string;
@@ -85,3 +109,25 @@ export interface MatchAttendanceCounters {
   pending: number;
   total: number;
 }
+
+export type ChargeType = 'arbitraje' | 'esporadico';
+export type ChargeStatus = 'Pendiente' | 'Pagado';
+export type PaymentMethod = 'Nequi' | 'Daviplata' | 'Efectivo' | 'Transferencia' | 'Otro';
+
+export interface Charge {
+  id: string;
+  teamId: string;
+  playerId: string;
+  playerName: string;
+  jerseyNumber: number;
+  conceptName: string; // "Arbitraje", "Uniforme", "Inscripción torneo", etc.
+  type: ChargeType;
+  matchId?: string; // solo si type === 'arbitraje', referencia al partido
+  amount: number;
+  status: ChargeStatus;
+  paymentMethod?: PaymentMethod;
+  paidAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
