@@ -14,6 +14,7 @@ export interface Team {
   name: string;
   category: string;
   slogan?: string;
+  logoUrl?: string; // URL fija del escudo/logo oficial del club
   adminPassword?: string; // Clave de modo gestión (administrador/DT)
   backgroundPhotos?: string[]; // Fotos de fondo para carteleras matchday
   primaryColor: string; // Hex color, e.g. #15803d

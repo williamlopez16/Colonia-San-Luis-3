@@ -48,6 +48,8 @@ export const TeamCrest: React.FC<TeamCrestProps> = ({
   size = 'md',
   className = '',
 }) => {
+  const [imageError, setImageError] = React.useState(false);
+
   const sizeMap = {
     xs: { box: 'w-7 h-8', font: 'text-[9px]', icon: 'w-2.5 h-2.5', star: 'text-[7px]' },
     sm: { box: 'w-9 h-11', font: 'text-[10px]', icon: 'w-3 h-3', star: 'text-[8px]' },
@@ -59,19 +61,26 @@ export const TeamCrest: React.FC<TeamCrestProps> = ({
   const currentSize = sizeMap[size];
   const initials = getInitials(name);
 
-  if (logoUrl) {
+  // If this is our team, use the fixed official team logo
+  const effectiveLogo = !imageError ? (logoUrl || (isOurTeam ? '/team_logo.jpg' : undefined)) : undefined;
+
+  if (effectiveLogo) {
     return (
-      <div className={`relative flex items-center justify-center ${currentSize.box} ${className}`}>
+      <div
+        className={`relative flex items-center justify-center ${currentSize.box} ${className}`}
+        title={name}
+      >
         <img
-          src={logoUrl}
+          src={effectiveLogo}
           alt={name}
-          className="w-full h-full object-contain filter drop-shadow-md"
+          onError={() => setImageError(true)}
+          className="w-full h-full object-contain filter drop-shadow-md rounded-md hover:scale-105 transition-transform"
         />
       </div>
     );
   }
 
-  // OUR TEAM: Verdolaga Shield (Green & White, Gold Stars)
+  // OUR TEAM: Verdolaga Shield Fallback (Green & White, Gold Stars)
   if (isOurTeam) {
     return (
       <div

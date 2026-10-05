@@ -116,9 +116,10 @@ function notifySync(topic: string) {
 // Initial demo seed data for San Luis, Antioquia
 const INITIAL_TEAM: Team = {
   id: DEFAULT_TEAM_ID,
-  name: 'Club San Luis',
+  name: 'Colonia de San Luis',
   category: 'Categoría Libre',
-  slogan: 'LA PERLA BONITA DE ANTIOQUIA',
+  slogan: 'LA PERLA VERDE DE ANTIOQUIA',
+  logoUrl: '/team_logo.jpg',
   adminPassword: 'admin',
   primaryColor: '#15803d', // Verde
   secondaryColor: '#ffffff', // Blanco
@@ -278,7 +279,16 @@ initializeLocalStorage();
 function getLocalTeam(): Team {
   if (typeof window === 'undefined') return INITIAL_TEAM;
   const raw = localStorage.getItem(STORAGE_KEYS.TEAM);
-  return raw ? JSON.parse(raw) : INITIAL_TEAM;
+  if (!raw) return INITIAL_TEAM;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.logoUrl) {
+      parsed.logoUrl = '/team_logo.jpg';
+    }
+    return parsed;
+  } catch {
+    return INITIAL_TEAM;
+  }
 }
 
 function getLocalTournaments(): Tournament[] {
@@ -347,6 +357,9 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
         (snapshot) => {
           if (!snapshot.empty) {
             const data = snapshot.docs[0].data() as Team;
+            if (!data.logoUrl) {
+              data.logoUrl = '/team_logo.jpg';
+            }
             localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(data));
             callback(data);
           } else {
@@ -375,7 +388,11 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
 }
 
 export async function saveTeam(team: Team): Promise<void> {
-  const updatedTeam = { ...team, updatedAt: new Date().toISOString() };
+  const updatedTeam = {
+    ...team,
+    logoUrl: team.logoUrl || '/team_logo.jpg',
+    updatedAt: new Date().toISOString(),
+  };
 
   // Update local cache
   localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(updatedTeam));

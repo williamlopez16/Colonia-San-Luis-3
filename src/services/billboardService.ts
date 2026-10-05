@@ -297,7 +297,7 @@ function drawPlayerSilhouette(
 }
 
 /**
- * Procedural stylized Team Crest graphic.
+ * Procedural stylized Team Crest graphic or real team logo image.
  */
 function drawVectorCrest(
   ctx: CanvasRenderingContext2D,
@@ -305,8 +305,20 @@ function drawVectorCrest(
   y: number,
   size: number,
   teamName: string,
-  isOurTeam = true
+  isOurTeam = true,
+  teamLogoImg: HTMLImageElement | null = null
 ) {
+  if (isOurTeam && teamLogoImg) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(234, 179, 8, 0.45)';
+    ctx.shadowBlur = 20;
+
+    // Draw the real official logo image cleanly
+    ctx.drawImage(teamLogoImg, x - size / 2, y - size / 2, size, size);
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.translate(x - size / 2, y - size / 2);
 
@@ -438,7 +450,8 @@ function renderTemplateDiagonalSplit(
   team: Team,
   match: Match,
   confirmedPlayers: Callup[],
-  bgPhotoImg: HTMLImageElement | null
+  bgPhotoImg: HTMLImageElement | null,
+  teamLogoImg: HTMLImageElement | null = null
 ) {
   // Background
   if (bgPhotoImg) {
@@ -521,7 +534,7 @@ function renderTemplateDiagonalSplit(
   // Match Clash Box
   const clashY = height * 0.25;
   const crestSize = 110;
-  drawVectorCrest(ctx, width * 0.28, clashY + 30, crestSize, team.name, true);
+  drawVectorCrest(ctx, width * 0.28, clashY + 30, crestSize, team.name, true, teamLogoImg);
 
   // VS Badge
   ctx.save();
@@ -611,7 +624,8 @@ function renderTemplateStadiumSpotlight(
   team: Team,
   match: Match,
   confirmedPlayers: Callup[],
-  bgPhotoImg: HTMLImageElement | null
+  bgPhotoImg: HTMLImageElement | null,
+  teamLogoImg: HTMLImageElement | null = null
 ) {
   if (bgPhotoImg) {
     drawPhotoBackground(ctx, bgPhotoImg, width, height, team.primaryColor || '#15803d');
@@ -659,7 +673,7 @@ function renderTemplateStadiumSpotlight(
 
   // Central Hero Crest
   const crestY = height * 0.25;
-  drawVectorCrest(ctx, width / 2, crestY, 130, team.name, true);
+  drawVectorCrest(ctx, width / 2, crestY, 130, team.name, true, teamLogoImg);
 
   // Matchup info
   ctx.save();
@@ -738,7 +752,8 @@ function renderTemplateBoldGrid(
   team: Team,
   match: Match,
   confirmedPlayers: Callup[],
-  bgPhotoImg: HTMLImageElement | null
+  bgPhotoImg: HTMLImageElement | null,
+  teamLogoImg: HTMLImageElement | null = null
 ) {
   // Base background
   if (bgPhotoImg) {
@@ -779,7 +794,7 @@ function renderTemplateBoldGrid(
   ctx.font = '800 16px "Montserrat", sans-serif';
   ctx.fillText('ALINEACIÓN & CONVOCATORIA OFICIAL', pad + 24, pad + b1H / 2 + 24);
 
-  drawVectorCrest(ctx, width - pad - 60, pad + b1H / 2, 74, team.name, true);
+  drawVectorCrest(ctx, width - pad - 60, pad + b1H / 2, 74, team.name, true, teamLogoImg);
   ctx.restore();
 
   // Bento Block 2: Rival Clash (Asymmetric Large Left block)
@@ -881,7 +896,8 @@ function renderTemplateGeometricMesh(
   team: Team,
   match: Match,
   confirmedPlayers: Callup[],
-  bgPhotoImg: HTMLImageElement | null
+  bgPhotoImg: HTMLImageElement | null,
+  teamLogoImg: HTMLImageElement | null = null
 ) {
   if (bgPhotoImg) {
     drawPhotoBackground(ctx, bgPhotoImg, width, height, team.primaryColor || '#15803d');
@@ -967,7 +983,7 @@ function renderTemplateGeometricMesh(
 
   // Duel Crests in Circle Rings
   const ringY = height * 0.26;
-  drawVectorCrest(ctx, width * 0.35, ringY, 95, team.name, true);
+  drawVectorCrest(ctx, width * 0.35, ringY, 95, team.name, true, teamLogoImg);
   drawVectorCrest(ctx, width * 0.65, ringY, 95, match.rival, false);
 
   // Roster Container
@@ -1022,7 +1038,8 @@ function renderTemplateCircularFocus(
   team: Team,
   match: Match,
   confirmedPlayers: Callup[],
-  bgPhotoImg: HTMLImageElement | null
+  bgPhotoImg: HTMLImageElement | null,
+  teamLogoImg: HTMLImageElement | null = null
 ) {
   if (bgPhotoImg) {
     drawPhotoBackground(ctx, bgPhotoImg, width, height, team.primaryColor || '#15803d');
@@ -1058,7 +1075,7 @@ function renderTemplateCircularFocus(
   ctx.restore();
 
   // Central Emblem Crest
-  drawVectorCrest(ctx, centerX, centerY, 140, team.name, true);
+  drawVectorCrest(ctx, centerX, centerY, 140, team.name, true, teamLogoImg);
 
   // Team Title
   ctx.save();
@@ -1221,6 +1238,15 @@ export async function renderMatchdayToCanvas(
   // Ensure fonts are loaded before painting text
   await ensureFontsLoaded();
 
+  // Load team official logo
+  let teamLogoImg: HTMLImageElement | null = null;
+  const logoUrl = team.logoUrl || '/team_logo.jpg';
+  try {
+    teamLogoImg = await loadImage(logoUrl);
+  } catch (err) {
+    console.warn('No se pudo cargar el logo oficial para la cartelera:', err);
+  }
+
   // Load custom background image if provided
   let bgImg: HTMLImageElement | null = null;
   if (options?.bgPhotoUrl) {
@@ -1240,22 +1266,22 @@ export async function renderMatchdayToCanvas(
   try {
     switch (tIndex) {
       case 0:
-        renderTemplateDiagonalSplit(ctx, width, height, team, match, confirmedPlayers, bgImg);
+        renderTemplateDiagonalSplit(ctx, width, height, team, match, confirmedPlayers, bgImg, teamLogoImg);
         break;
       case 1:
-        renderTemplateStadiumSpotlight(ctx, width, height, team, match, confirmedPlayers, bgImg);
+        renderTemplateStadiumSpotlight(ctx, width, height, team, match, confirmedPlayers, bgImg, teamLogoImg);
         break;
       case 2:
-        renderTemplateBoldGrid(ctx, width, height, team, match, confirmedPlayers, bgImg);
+        renderTemplateBoldGrid(ctx, width, height, team, match, confirmedPlayers, bgImg, teamLogoImg);
         break;
       case 3:
-        renderTemplateGeometricMesh(ctx, width, height, team, match, confirmedPlayers, bgImg);
+        renderTemplateGeometricMesh(ctx, width, height, team, match, confirmedPlayers, bgImg, teamLogoImg);
         break;
       case 4:
-        renderTemplateCircularFocus(ctx, width, height, team, match, confirmedPlayers, bgImg);
+        renderTemplateCircularFocus(ctx, width, height, team, match, confirmedPlayers, bgImg, teamLogoImg);
         break;
       default:
-        renderTemplateDiagonalSplit(ctx, width, height, team, match, confirmedPlayers, bgImg);
+        renderTemplateDiagonalSplit(ctx, width, height, team, match, confirmedPlayers, bgImg, teamLogoImg);
         break;
     }
   } catch (err) {

@@ -74,7 +74,8 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
         id: team?.id || getActiveTeamId(),
         name: trimmedName,
         category: trimmedCategory,
-        slogan: slogan.trim() || 'LA PERLA BONITA DE ANTIOQUIA',
+        slogan: slogan.trim() || 'LA PERLA VERDE DE ANTIOQUIA',
+        logoUrl: team?.logoUrl || '/team_logo.jpg',
         adminPassword: trimmedPassword,
         primaryColor,
         secondaryColor,
@@ -178,6 +179,28 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
             <Shield className="w-4 h-4 text-emerald-600" />
             Datos del Equipo
           </h3>
+
+          {/* Official Logo Banner */}
+          <div className="flex items-center gap-4 p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 mb-5 shadow-2xs">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1 shadow-sm border border-emerald-300 flex-shrink-0 flex items-center justify-center overflow-hidden">
+              <img
+                src={team?.logoUrl || '/team_logo.jpg'}
+                alt="Escudo Oficial Colonia de San Luis"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full inline-block mb-1 border border-emerald-300/60">
+                Escudo Oficial Fijo
+              </span>
+              <h4 className="font-extrabold text-sm sm:text-base text-gray-900 leading-tight">
+                COLONIA DE SAN LUIS
+              </h4>
+              <p className="text-xs text-emerald-700 font-semibold mt-0.5">
+                LA PERLA VERDE DE ANTIOQUIA
+              </p>
+            </div>
+          </div>
 
           <form onSubmit={handleSaveTeam} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

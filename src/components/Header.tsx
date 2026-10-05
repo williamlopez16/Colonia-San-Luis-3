@@ -49,15 +49,20 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Top bar with team name and quick actions */}
         <div className="flex items-center justify-between py-3 border-b border-emerald-700/60">
           <div className="flex items-center gap-3">
-            {/* Verdolaga circular crest */}
+            {/* Official Club Logo Crest */}
             <div
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1 shadow-sm border-2 border-emerald-950 flex-shrink-0 cursor-pointer"
+              className="w-11 h-11 rounded-full bg-white flex items-center justify-center p-0.5 shadow-md border-2 border-emerald-950 flex-shrink-0 cursor-pointer overflow-hidden hover:scale-105 transition-transform"
               onClick={onOpenTeamModal}
-              title="Configurar equipo"
+              title="Configurar equipo - Colonia de San Luis"
             >
-              <div className="w-full h-full rounded-full bg-emerald-700 flex items-center justify-center text-white font-black text-sm">
-                ⚽
-              </div>
+              <img
+                src={team?.logoUrl || '/team_logo.jpg'}
+                alt={team?.name || 'Colonia de San Luis'}
+                className="w-full h-full object-cover rounded-full"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
 
             <div>
