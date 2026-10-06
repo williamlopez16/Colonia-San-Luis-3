@@ -21,6 +21,8 @@ import {
   DollarSign,
   Award,
   Edit2,
+  Sparkles,
+  FileText,
 } from 'lucide-react';
 
 interface MatchListProps {
@@ -31,6 +33,9 @@ interface MatchListProps {
   onEditMatch: (match: Match) => void;
   onDeleteMatch: (matchId: string) => void;
   onOpenMatchStats: (matchId: string) => void;
+  onOpenMatchdayGraphic?: (match: Match) => void;
+  onOpenAIPrompt?: (match: Match) => void;
+  onOpenPostMatch?: (match: Match) => void;
 }
 
 export const MatchList: React.FC<MatchListProps> = ({
@@ -41,6 +46,9 @@ export const MatchList: React.FC<MatchListProps> = ({
   onEditMatch,
   onDeleteMatch,
   onOpenMatchStats,
+  onOpenMatchdayGraphic,
+  onOpenAIPrompt,
+  onOpenPostMatch,
 }) => {
   const { isAdminMode } = useAccessMode();
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
@@ -290,16 +298,61 @@ export const MatchList: React.FC<MatchListProps> = ({
                   </div>
 
                   {/* Actions Toolbar */}
-                  <div className="flex items-center gap-2 justify-end">
+                  <div className="flex items-center gap-1.5 sm:gap-2 justify-end flex-wrap">
+                    {/* Botón Cartelera */}
+                    {onOpenMatchdayGraphic && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenMatchdayGraphic(match);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                        title="Ver o descargar cartelera matchday"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Cartelera</span>
+                      </button>
+                    )}
+
+                    {/* Botón Prompt IA */}
+                    {onOpenAIPrompt && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenAIPrompt(match);
+                        }}
+                        className="px-2 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                        title="Copiar prompt para IA"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-purple-700" />
+                        <span className="hidden sm:inline">Prompt IA</span>
+                      </button>
+                    )}
+
+                    {/* Botón Control Post-Partido */}
+                    {onOpenPostMatch && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenPostMatch(match);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                        title="Re-validar asistencia real y pago de arbitraje"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Post-Partido</span>
+                      </button>
+                    )}
+
                     {/* Botón Cargar/Ver Estadísticas */}
                     {(isAdminMode || isFinished) && (
                       <button
                         onClick={(e) => handleOpenStats(e, match.id)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs hover:shadow-sm transition cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-xs flex items-center gap-1 shadow-xs hover:shadow-sm transition cursor-pointer"
                         title={isAdminMode ? 'Cargar o editar goles, asistencias y tarjetas' : 'Ver estadísticas del partido'}
                       >
                         <BarChart2 className="w-3.5 h-3.5" />
-                        <span>{isAdminMode ? (isFinished ? 'Estadísticas' : 'Cargar Estadísticas') : 'Ver Estadísticas'}</span>
+                        <span className="hidden sm:inline">Stats</span>
                       </button>
                     )}
 

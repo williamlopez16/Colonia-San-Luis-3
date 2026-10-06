@@ -23,6 +23,7 @@ import {
   Sparkles,
   Shield,
   Wallet,
+  FileText,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -37,6 +38,8 @@ interface DashboardViewProps {
   onOpenMatchdayGraphic: (match: Match) => void;
   onOpenMatchStats: (matchId: string) => void;
   onNavigateToTab: (tab: AppTab) => void;
+  onOpenAIPrompt?: (match: Match) => void;
+  onOpenPostMatch?: (match: Match) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -51,6 +54,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenMatchdayGraphic,
   onOpenMatchStats,
   onNavigateToTab,
+  onOpenAIPrompt,
+  onOpenPostMatch,
 }) => {
   const { isAdminMode } = useAccessMode();
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
@@ -329,50 +334,82 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             )}
 
-            {/* 3. Four Direct Action Buttons for this Match */}
-            <div className="mt-6 pt-5 border-t border-gray-100">
-              <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-wider mb-3">
-                Acciones Rápidas del Partido
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {/* 3. Action Buttons for this Match (Optimized for Mobile) */}
+            <div className="mt-6 pt-5 border-t border-gray-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[11px] font-black text-gray-400 uppercase tracking-wider">
+                  Acciones Rápidas del Partido
+                </h4>
+                {nextMatch.postMatchDone && (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    ✓ Post-partido validado
+                  </span>
+                )}
+              </div>
+
+              {/* Primary High-Visibility Row: Cartelera + Prompt IA + Control Post-partido */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. Descargar Cartelera Matchday */}
+                <button
+                  onClick={() => onOpenMatchdayGraphic(nextMatch)}
+                  className="flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-900 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition cursor-pointer active:scale-98"
+                  title="Generar y descargar imagen oficial para estados de WhatsApp y redes"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <span>🎨 Descargar Cartelera Matchday</span>
+                </button>
+
+                {/* 2. Prompt para IA */}
+                <button
+                  onClick={() => onOpenAIPrompt?.(nextMatch)}
+                  className="flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-2xl bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 text-purple-950 font-black text-xs sm:text-sm transition cursor-pointer shadow-2xs active:scale-98"
+                  title="Copiar prompt con datos y convocados para ChatGPT, Midjourney o Gemini"
+                >
+                  <FileText className="w-4 h-4 text-purple-700" />
+                  <span>✨ Prompt para IA (Copiar)</span>
+                </button>
+
+                {/* 3. Control Post-Partido */}
+                <button
+                  onClick={() => onOpenPostMatch?.(nextMatch)}
+                  className="flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs sm:text-sm shadow-md hover:shadow-lg transition cursor-pointer active:scale-98"
+                  title="Re-validar quiénes jugaron realmente y registrar pago de arbitraje"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                  <span>📋 Control Post-Partido</span>
+                </button>
+              </div>
+
+              {/* Secondary Actions: Editar, Convocados, Marcador/Stats */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 {/* 1. Editar partido */}
                 <button
                   onClick={() => handleEditClick(nextMatch)}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-2 p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 font-bold text-xs transition cursor-pointer hover:border-gray-300 shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 font-bold text-xs transition cursor-pointer hover:border-gray-300 shadow-2xs"
                   title="Editar fecha, cancha, rival o convocados"
                 >
-                  <Edit2 className="w-4 h-4 text-emerald-600" />
-                  <span>Editar Partido</span>
+                  <Edit2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Editar</span>
                 </button>
 
                 {/* 2. Ver confirmaciones */}
                 <button
                   onClick={() => onViewMatchCallups(nextMatch.id)}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs transition cursor-pointer shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs transition cursor-pointer shadow-2xs"
                   title="Ver y gestionar asistencia de jugadores"
                 >
-                  <Users className="w-4 h-4 text-emerald-700" />
-                  <span>Confirmaciones</span>
+                  <Users className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Convocados</span>
                 </button>
 
-                {/* 3. Cartelera */}
-                <button
-                  onClick={() => onOpenMatchdayGraphic(nextMatch)}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-2 p-3 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-bold text-xs transition cursor-pointer shadow-2xs"
-                  title="Generar imagen para estados de WhatsApp y redes"
-                >
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  <span>Cartelera Gráfica</span>
-                </button>
-
-                {/* 4. Marcador / Estadísticas */}
+                {/* 3. Marcador / Estadísticas */}
                 <button
                   onClick={() => handleStatsClick(nextMatch.id, Boolean(nextMatch.matchState === 'Finalizado' || nextMatch.score?.isPlayed))}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-xs hover:shadow-sm"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-xs hover:shadow-sm"
                   title="Cargar resultado final, goles, asistencias y tarjetas"
                 >
-                  <BarChart2 className="w-4 h-4" />
-                  <span>Marcador / Stats</span>
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  <span>Marcador/Stats</span>
                 </button>
               </div>
             </div>

@@ -25,7 +25,9 @@ import {
   Square,
   Layers,
   Trash2,
+  FileText,
 } from 'lucide-react';
+import { AIPromptModal } from './AIPromptModal';
 
 interface MatchdayGraphicModalProps {
   team: Team | null;
@@ -97,6 +99,8 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
   const [graphicError, setGraphicError] = useState<string | null>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
+  const [showAIPromptModal, setShowAIPromptModal] = useState<boolean>(false);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
 
   // Confirmed attendees only
   const confirmedPlayers = useMemo(
@@ -131,6 +135,14 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
           format,
           bgPhotoUrl: photoToUse,
         });
+
+        if (!isCancelled && canvasRef.current) {
+          try {
+            setPreviewDataUrl(canvasRef.current.toDataURL('image/png'));
+          } catch {
+            // Ignored if canvas tainted
+          }
+        }
       } catch (err) {
         console.error('Error renderizando la cartelera:', err);
         if (!isCancelled) {
@@ -327,6 +339,16 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
               ({(templateIndex % BILLBOARD_TEMPLATES.length) + 1}/5)
             </span>
           </button>
+
+          {/* AI Prompt Button in Toolbar */}
+          <button
+            onClick={() => setShowAIPromptModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white text-xs font-extrabold shadow-xs hover:shadow-md transition cursor-pointer ml-auto sm:ml-0"
+            title="Ver prompt para generar imagen espectacular con otra IA"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+            <span>✨ Prompt para IA</span>
+          </button>
         </div>
 
         {/* Background Mode Selector Pills */}
@@ -499,32 +521,35 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
           </p>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 sm:p-5 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
-          <div className="text-xs text-gray-500 text-center sm:text-left">
-            Resolución: <strong>{format === 'story' ? '1080 x 1920 px (HD)' : '1080 x 1080 px (HD)'}</strong>
+        {/* Sticky Mobile Footer Actions */}
+        <div className="p-3 sm:p-5 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 flex-shrink-0 sticky bottom-0 z-30 shadow-[0_-4px_20px_rgba(0,0,0,0.12)]">
+          <div className="flex items-center justify-between w-full sm:w-auto text-xs text-gray-500">
+            <span>Resolución: <strong>{format === 'story' ? '1080x1920 (HD)' : '1080x1080 (HD)'}</strong></span>
+            <span className="text-[10px] sm:hidden text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
+              Móvil Listo
+            </span>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={onClose}
-              className="flex-1 sm:flex-none py-2.5 px-4 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
+              className="py-2.5 px-3 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 text-xs font-bold transition cursor-pointer"
             >
               Cerrar
             </button>
 
             <button
               onClick={handleShareMobile}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer"
-              title="Compartir directamente en WhatsApp o redes"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-extrabold shadow-md hover:shadow-lg transition cursor-pointer active:scale-95"
+              title="Compartir directamente en WhatsApp o Guardar en fotos"
             >
               <Share2 className="w-4 h-4" />
-              <span>Compartir en WhatsApp</span>
+              <span>WhatsApp / Compartir</span>
             </button>
 
             <button
               onClick={handleDownload}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md hover:shadow-lg transition cursor-pointer active:scale-95"
             >
               <Download className="w-4 h-4" />
               <span>{downloadSuccess ? '¡Descargado!' : 'Descargar Imagen'}</span>
@@ -532,6 +557,15 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* AI Prompt Modal overlay if requested */}
+      {showAIPromptModal && (
+        <AIPromptModal
+          team={team}
+          match={match}
+          onClose={() => setShowAIPromptModal(false)}
+        />
+      )}
     </div>
   );
 };

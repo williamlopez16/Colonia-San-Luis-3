@@ -136,13 +136,14 @@ export const StatsView: React.FC<StatsViewProps> = ({
           redCards: 0,
         };
 
-        // If player has some stat or was confirmed in match
+        // If player has some stat or was confirmed and attended in match
+        const callupItem = match.callups.find((c) => c.playerId === stat.playerId);
         const playedInMatch =
           stat.goals > 0 ||
           stat.assists > 0 ||
           stat.yellowCards > 0 ||
           stat.redCards > 0 ||
-          match.callups.some((c) => c.playerId === stat.playerId && c.status === 'Confirmado');
+          Boolean(callupItem && (callupItem.attended !== undefined ? callupItem.attended : callupItem.status === 'Confirmado'));
 
         if (playedInMatch) {
           existing.matchesCount += 1;

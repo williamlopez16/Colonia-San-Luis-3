@@ -32,6 +32,8 @@ import { TeamTournamentModal } from './components/TeamTournamentModal';
 import { PublicConfirmView } from './components/PublicConfirmView';
 import { MatchdayGraphicModal } from './components/MatchdayGraphicModal';
 import { MatchStatsModal } from './components/MatchStatsModal';
+import { AIPromptModal } from './components/AIPromptModal';
+import { PostMatchModal } from './components/PostMatchModal';
 import { StatsView } from './components/StatsView';
 import { OfflineBanner } from './components/OfflineBanner';
 import { FirebaseStatusBanner } from './components/FirebaseStatusBanner';
@@ -54,7 +56,9 @@ export default function App() {
   const [statsMatchId, setStatsMatchId] = useState<string | null>(null);
   const [isCreatingMatch, setIsCreatingMatch] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
-  const [showMatchdayGraphic, setShowMatchdayGraphic] = useState<boolean>(false);
+  const [graphicMatch, setGraphicMatch] = useState<Match | null>(null);
+  const [aiPromptMatch, setAiPromptMatch] = useState<Match | null>(null);
+  const [postMatchMatch, setPostMatchMatch] = useState<Match | null>(null);
   const [showTeamModal, setShowTeamModal] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
 
@@ -174,8 +178,15 @@ export default function App() {
   };
 
   const handleOpenMatchdayGraphic = (match: Match) => {
-    setSelectedMatchId(match.id);
-    setShowMatchdayGraphic(true);
+    setGraphicMatch(match);
+  };
+
+  const handleOpenAIPrompt = (match: Match) => {
+    setAiPromptMatch(match);
+  };
+
+  const handleOpenPostMatch = (match: Match) => {
+    setPostMatchMatch(match);
   };
 
   const handleOpenMatchStats = (matchId: string) => {
@@ -268,6 +279,8 @@ export default function App() {
             onEditMatch={handleStartEditMatch}
             onViewMatchCallups={handleViewMatchCallups}
             onOpenMatchdayGraphic={handleOpenMatchdayGraphic}
+            onOpenAIPrompt={handleOpenAIPrompt}
+            onOpenPostMatch={handleOpenPostMatch}
             onOpenMatchStats={handleOpenMatchStats}
             onNavigateToTab={(tab) => {
               setActiveTab(tab);
@@ -299,7 +312,9 @@ export default function App() {
                 team={team}
                 match={currentAdminMatch}
                 onBack={() => setSelectedMatchId(null)}
-                onOpenMatchdayGraphic={() => setShowMatchdayGraphic(true)}
+                onOpenMatchdayGraphic={() => handleOpenMatchdayGraphic(currentAdminMatch)}
+                onOpenAIPrompt={() => handleOpenAIPrompt(currentAdminMatch)}
+                onOpenPostMatch={() => handleOpenPostMatch(currentAdminMatch)}
                 onOpenMatchStats={() => setStatsMatchId(currentAdminMatch.id)}
                 onEditMatch={() => handleStartEditMatch(currentAdminMatch)}
               />
@@ -315,6 +330,9 @@ export default function App() {
                 onEditMatch={handleStartEditMatch}
                 onDeleteMatch={handleDeleteMatch}
                 onOpenMatchStats={(id) => setStatsMatchId(id)}
+                onOpenMatchdayGraphic={handleOpenMatchdayGraphic}
+                onOpenAIPrompt={handleOpenAIPrompt}
+                onOpenPostMatch={handleOpenPostMatch}
               />
             )}
           </>
@@ -418,12 +436,30 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal: Matchday Visual Graphic (Canvas 1:1) */}
-      {showMatchdayGraphic && currentAdminMatch && (
+      {/* Modal: Matchday Visual Graphic (Canvas 1:1 & Story 9:16) */}
+      {graphicMatch && (
         <MatchdayGraphicModal
           team={team}
-          match={currentAdminMatch}
-          onClose={() => setShowMatchdayGraphic(false)}
+          match={graphicMatch}
+          onClose={() => setGraphicMatch(null)}
+        />
+      )}
+
+      {/* Modal: AI Prompt Generator */}
+      {aiPromptMatch && (
+        <AIPromptModal
+          team={team}
+          match={aiPromptMatch}
+          onClose={() => setAiPromptMatch(null)}
+        />
+      )}
+
+      {/* Modal: Post-Match Attendance & Arbitration Validation */}
+      {postMatchMatch && (
+        <PostMatchModal
+          team={team}
+          match={postMatchMatch}
+          onClose={() => setPostMatchMatch(null)}
         />
       )}
 

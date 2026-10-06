@@ -64,6 +64,12 @@ export interface Callup {
   status: AttendanceStatus;
   reason?: string;
   confirmedAt?: string;
+  // Post-match validation fields
+  attended?: boolean; // Re-validación: true si asistió a la cancha, false si faltó tras confirmar
+  arbitrationPaid?: boolean; // Check simple: ¿Pagó su cuota de arbitraje?
+  arbitrationAmount?: number; // Valor de la cuota de arbitraje
+  arbitrationMethod?: PaymentMethod; // Método de pago (Efectivo, Nequi, etc.)
+  arbitrationChargeId?: string; // ID del cobro vinculado en finanzas
 }
 
 export type MatchState = 'Programado' | 'Finalizado';
@@ -101,6 +107,8 @@ export interface Match {
   score?: MatchScore;
   playerStats?: PlayerMatchStats[];
   callups: Callup[];
+  postMatchDone?: boolean; // Control postpartido completado (asistencia real y arbitraje validados)
+  postMatchFeePerPlayer?: number; // Cuota por jugador definida para este partido
   createdAt: string;
   updatedAt: string;
 }

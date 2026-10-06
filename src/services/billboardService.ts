@@ -1292,13 +1292,37 @@ export async function renderMatchdayToCanvas(
 }
 
 /**
- * Downloads current canvas as PNG file.
+ * Downloads current canvas as PNG file with mobile fallback support.
  */
 export function downloadCanvasPng(canvas: HTMLCanvasElement, filename = 'matchday.png'): void {
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = canvas.toDataURL('image/png');
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => document.body.removeChild(link), 150);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 1000);
+    }, 'image/png');
+  } catch {
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => document.body.removeChild(link), 150);
+  }
 }

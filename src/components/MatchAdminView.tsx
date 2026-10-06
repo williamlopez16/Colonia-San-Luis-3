@@ -34,6 +34,8 @@ import {
   ExternalLink,
   BarChart2,
   Edit2,
+  Sparkles,
+  FileText,
 } from 'lucide-react';
 
 interface MatchAdminViewProps {
@@ -43,6 +45,8 @@ interface MatchAdminViewProps {
   onOpenMatchdayGraphic: () => void;
   onOpenMatchStats: () => void;
   onEditMatch: () => void;
+  onOpenAIPrompt?: () => void;
+  onOpenPostMatch?: () => void;
 }
 
 export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
@@ -52,6 +56,8 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
   onOpenMatchdayGraphic,
   onOpenMatchStats,
   onEditMatch,
+  onOpenAIPrompt,
+  onOpenPostMatch,
 }) => {
   const { isAdminMode } = useAccessMode();
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
@@ -191,7 +197,41 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Botón Descargar Cartelera */}
+            <button
+              onClick={onOpenMatchdayGraphic}
+              className="flex items-center gap-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
+              title="Generar y descargar cartelera de matchday"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>🎨 Cartelera Matchday</span>
+            </button>
+
+            {/* Botón Prompt para IA */}
+            {onOpenAIPrompt && (
+              <button
+                onClick={onOpenAIPrompt}
+                className="flex items-center gap-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 px-3 py-2 text-xs font-bold transition cursor-pointer"
+                title="Copiar prompt con datos y convocados para otra IA"
+              >
+                <FileText className="w-3.5 h-3.5 text-purple-700" />
+                <span>✨ Prompt IA</span>
+              </button>
+            )}
+
+            {/* Botón Control Post-Partido */}
+            {onOpenPostMatch && (
+              <button
+                onClick={onOpenPostMatch}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
+                title="Re-validar quiénes jugaron realmente y registrar pago de arbitraje"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                <span>📋 Control Post-Partido</span>
+              </button>
+            )}
+
             {/* Botón Editar Partido (solo admin) */}
             {isAdminMode && (
               <button
@@ -200,17 +240,17 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
                 title="Editar fecha, lugar, valor de arbitraje o lista de convocados"
               >
                 <Edit2 className="w-3.5 h-3.5 text-gray-600" />
-                <span>Editar Partido</span>
+                <span>Editar</span>
               </button>
             )}
 
             {/* Botón Cargar / Ver Estadísticas */}
             <button
               onClick={onOpenMatchStats}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
             >
-              <BarChart2 className="w-4 h-4" />
-              <span>{isAdminMode ? 'Cargar Estadísticas' : 'Ver Estadísticas'}</span>
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span>Stats</span>
             </button>
           </div>
         </div>

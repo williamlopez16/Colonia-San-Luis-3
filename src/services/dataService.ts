@@ -322,7 +322,7 @@ export function parseRefereeFee(feeStr: string | number | undefined): number {
   return digitsOnly ? parseInt(digitsOnly, 10) : 0;
 }
 
-function getLocalCharges(): Charge[] {
+export function getLocalCharges(): Charge[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
   return raw ? JSON.parse(raw) : [];
