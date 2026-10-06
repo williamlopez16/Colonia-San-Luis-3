@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Team } from '../types';
 import { useAccessMode } from '../context/AccessModeContext';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -14,26 +14,34 @@ import {
   Wallet,
   Lock,
   Unlock,
+  ChevronDown,
+  CheckCircle2,
 } from 'lucide-react';
 
 export type AppTab = 'home' | 'matches' | 'players' | 'stats' | 'finance' | 'concepts' | 'team';
 
 interface HeaderProps {
   team: Team | null;
+  teams?: Team[];
   activeTab: AppTab;
   onTabChange: (tab: AppTab) => void;
   onOpenTeamModal: () => void;
   onOpenAdminModal: () => void;
+  onSelectTeam?: (teamId: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   team,
+  teams = [],
   activeTab,
   onTabChange,
   onOpenTeamModal,
   onOpenAdminModal,
+  onSelectTeam,
 }) => {
   const { isAdminMode, lockAdminMode } = useAccessMode();
+  const [isTeamMenuOpen, setIsTeamMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleToggleAccessMode = () => {
     if (isAdminMode) {
@@ -43,17 +51,30 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsTeamMenuOpen(false);
+      }
+    };
+    if (isTeamMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isTeamMenuOpen]);
+
   return (
     <header className="bg-emerald-800 text-white shadow-md sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Top bar with team name and quick actions */}
         <div className="flex items-center justify-between py-3 border-b border-emerald-700/60">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative" ref={menuRef}>
             {/* Official Club Logo Crest */}
             <div
               className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center p-0.5 shadow-xs border border-emerald-400/40 flex-shrink-0 cursor-pointer overflow-hidden hover:scale-105 transition-transform"
-              onClick={onOpenTeamModal}
-              title="Configurar equipo - Colonia de San Luis"
+              onClick={() => setIsTeamMenuOpen(!isTeamMenuOpen)}
+              title="Cambiar de equipo o configurar"
             >
               <img
                 src={(team?.logoUrl && !team.logoUrl.includes('.jpg')) ? team.logoUrl : '/team_logo.png?v=3'}
@@ -66,19 +87,103 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
-                <h1
-                  onClick={onOpenTeamModal}
-                  className="font-extrabold text-base sm:text-lg leading-tight hover:text-emerald-200 cursor-pointer transition flex items-center gap-1.5"
+              {/* Team Name with Quick Switcher Trigger */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTeamMenuOpen(!isTeamMenuOpen)}
+                  className="font-extrabold text-base sm:text-lg leading-tight hover:text-emerald-200 cursor-pointer transition flex items-center gap-1.5 text-left"
+                  title="Toca para cambiar rápidamente entre equipos"
                 >
-                  <span>{team?.name || 'Mi Equipo de Fútbol'}</span>
-                  <Settings2 className="w-3.5 h-3.5 text-emerald-300 opacity-80" />
-                </h1>
+                  <span className="truncate max-w-[190px] sm:max-w-[280px]">{team?.name || 'Mi Equipo de Fútbol'}</span>
+                  <ChevronDown className={`w-4 h-4 text-emerald-300 transition-transform ${isTeamMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {teams.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsTeamMenuOpen(!isTeamMenuOpen)}
+                    className="text-[10px] font-black uppercase tracking-wider bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 px-2 py-0.5 rounded-full border border-emerald-600/70 shadow-2xs transition cursor-pointer"
+                  >
+                    {teams.length} equipos
+                  </button>
+                )}
               </div>
+
               <p className="text-[11px] sm:text-xs text-emerald-200 font-bold tracking-wider uppercase">
                 {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
               </p>
             </div>
+
+            {/* Quick Team Switcher Dropdown */}
+            {isTeamMenuOpen && (
+              <div className="absolute top-full left-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-gray-200 py-2 z-50 animate-fade-in text-gray-900">
+                <div className="px-3.5 py-1.5 border-b border-gray-100 flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
+                    Cambiar de Equipo ({teams.length})
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    1 toque
+                  </span>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {teams.map((t) => {
+                    const isActive = t.id === team?.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          onSelectTeam?.(t.id);
+                          setIsTeamMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-left transition cursor-pointer ${
+                          isActive
+                            ? 'bg-emerald-50/80 text-emerald-950 font-bold'
+                            : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 p-0.5 border border-gray-200 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={(!t.logoUrl || t.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : t.logoUrl}
+                              alt=""
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/team_logo.png';
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-extrabold truncate">{t.name}</p>
+                            <span className="text-[10px] text-gray-500 font-semibold">{t.category || 'Categoría Libre'}</span>
+                          </div>
+                        </div>
+
+                        {isActive && (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 ml-2" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-1.5 mt-1 border-t border-gray-100 px-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTeamMenuOpen(false);
+                      onOpenTeamModal();
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-gray-100 hover:bg-emerald-50 text-gray-700 hover:text-emerald-800 text-xs font-bold transition cursor-pointer"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>Ver todos los equipos y torneos</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

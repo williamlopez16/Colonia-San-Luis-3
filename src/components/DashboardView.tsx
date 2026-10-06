@@ -28,6 +28,7 @@ import {
 
 interface DashboardViewProps {
   team: Team | null;
+  teams?: Team[];
   matches: Match[];
   players: Player[];
   charges?: Charge[];
@@ -40,10 +41,12 @@ interface DashboardViewProps {
   onNavigateToTab: (tab: AppTab) => void;
   onOpenAIPrompt?: (match: Match) => void;
   onOpenPostMatch?: (match: Match) => void;
+  onSelectTeam?: (teamId: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   team,
+  teams = [],
   matches,
   players,
   charges,
@@ -56,6 +59,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToTab,
   onOpenAIPrompt,
   onOpenPostMatch,
+  onSelectTeam,
 }) => {
   const { isAdminMode } = useAccessMode();
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
@@ -168,6 +172,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      {/* 0. Quick Multi-Team Switcher Bar (1-tap switching for anyone) */}
+      {teams && teams.length > 1 && (
+        <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-gray-200 flex items-center justify-between gap-3 overflow-x-auto no-scrollbar animate-fade-in">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+            <span className="text-[11px] font-black uppercase tracking-wider text-gray-400 pl-1 flex-shrink-0">
+              Equipos:
+            </span>
+            {teams.map((t) => {
+              const isActive = t.id === team?.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onSelectTeam?.(t.id)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex-shrink-0 active:scale-95 ${
+                    isActive
+                      ? 'bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-300'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 border border-transparent'
+                  }`}
+                  title={`Cambiar a ${t.name}`}
+                >
+                  <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-white/40">
+                    <img
+                      src={(!t.logoUrl || t.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : t.logoUrl}
+                      alt=""
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/team_logo.png';
+                      }}
+                    />
+                  </div>
+                  <span>{t.name}</span>
+                  {t.category && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                        isActive ? 'bg-emerald-800 text-emerald-100' : 'bg-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {t.category}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateToTab('team')}
+            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 px-2 py-1 rounded-lg hover:bg-emerald-50 transition whitespace-nowrap flex-shrink-0 cursor-pointer"
+          >
+            + Ver todos
+          </button>
+        </div>
+      )}
+
       {/* 1. Header Club Banner */}
       <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-950 text-white rounded-3xl p-5 sm:p-7 shadow-md relative overflow-hidden border border-emerald-700/60">
         <div className="absolute -right-12 -bottom-12 opacity-10 pointer-events-none select-none text-white font-black text-9xl">

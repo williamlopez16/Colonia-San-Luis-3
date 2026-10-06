@@ -73,6 +73,8 @@ export function isFirestoreOnline(): boolean {
 
 // Keys for LocalStorage
 const STORAGE_KEYS = {
+  TEAMS: 'cf_teams_data',
+  ACTIVE_TEAM_ID: 'cf_active_team_id',
   TEAM: 'cf_team_data',
   TOURNAMENTS: 'cf_tournaments_data',
   PLAYERS: 'cf_players_data',
@@ -85,6 +87,9 @@ export const DEFAULT_TEAM_ID = 'team-san-luis-01';
 
 export function getActiveTeamId(): string {
   if (typeof window === 'undefined') return DEFAULT_TEAM_ID;
+  const activeId = localStorage.getItem(STORAGE_KEYS.ACTIVE_TEAM_ID);
+  if (activeId) return activeId;
+
   const raw = localStorage.getItem(STORAGE_KEYS.TEAM);
   if (raw) {
     try {
@@ -95,6 +100,18 @@ export function getActiveTeamId(): string {
     }
   }
   return DEFAULT_TEAM_ID;
+}
+
+export function setActiveTeamId(teamId: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_KEYS.ACTIVE_TEAM_ID, teamId);
+  const teams = getLocalTeams();
+  const found = teams.find((t) => t.id === teamId);
+  if (found) {
+    localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(found));
+  }
+  notifySync('team');
+  notifySync('teams');
 }
 
 // BroadcastChannel for instant same-browser tab sync
@@ -259,6 +276,14 @@ function initializeLocalStorage() {
   if (!localStorage.getItem(STORAGE_KEYS.TEAM)) {
     localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(INITIAL_TEAM));
   }
+  if (!localStorage.getItem(STORAGE_KEYS.TEAMS)) {
+    const single = localStorage.getItem(STORAGE_KEYS.TEAM);
+    const initialList = single ? [JSON.parse(single)] : [INITIAL_TEAM];
+    localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(initialList));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_TEAM_ID)) {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TEAM_ID, DEFAULT_TEAM_ID);
+  }
   if (!localStorage.getItem(STORAGE_KEYS.TOURNAMENTS)) {
     localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(INITIAL_TOURNAMENTS));
   }
@@ -276,8 +301,58 @@ function initializeLocalStorage() {
 initializeLocalStorage();
 
 // Local storage retrieval helpers
+export function getLocalTeams(): Team[] {
+  if (typeof window === 'undefined') return [INITIAL_TEAM];
+  const raw = localStorage.getItem(STORAGE_KEYS.TEAMS);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((t: Team) => {
+          if (!t.logoUrl || t.logoUrl.endsWith('.jpg')) {
+            t.logoUrl = '/team_logo.png';
+          }
+          return t;
+        });
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  // Fallback to single team in storage
+  const single = getLocalTeam();
+  const list = [single];
+  try {
+    localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(list));
+  } catch {}
+  return list;
+}
+
 function getLocalTeam(): Team {
   if (typeof window === 'undefined') return INITIAL_TEAM;
+  const activeId = getActiveTeamId();
+  const rawTeams = localStorage.getItem(STORAGE_KEYS.TEAMS);
+  if (rawTeams) {
+    try {
+      const teams: Team[] = JSON.parse(rawTeams);
+      const found = teams.find((t) => t.id === activeId);
+      if (found) {
+        if (!found.logoUrl || found.logoUrl.endsWith('.jpg')) {
+          found.logoUrl = '/team_logo.png';
+        }
+        return found;
+      }
+      if (teams.length > 0) {
+        const first = teams[0];
+        if (!first.logoUrl || first.logoUrl.endsWith('.jpg')) {
+          first.logoUrl = '/team_logo.png';
+        }
+        return first;
+      }
+    } catch {}
+  }
+
   const raw = localStorage.getItem(STORAGE_KEYS.TEAM);
   if (!raw) return INITIAL_TEAM;
   try {
@@ -329,18 +404,17 @@ export function getLocalCharges(): Charge[] {
 }
 
 // ==========================================
-// 1. TEAM OPERATIONS
+// 1. TEAM OPERATIONS (MULTI-TEAM SUPPORT)
 // ==========================================
 
-export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscribe {
-  const localTeam = getLocalTeam();
-  callback(localTeam);
+export function subscribeToTeams(callback: (teams: Team[]) => void): Unsubscribe {
+  callback(getLocalTeams());
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'team') callback(getLocalTeam());
+    if (e.data?.topic === 'teams' || e.data?.topic === 'team') callback(getLocalTeams());
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.TEAM) callback(getLocalTeam());
+    if (e.key === STORAGE_KEYS.TEAMS || e.key === STORAGE_KEYS.TEAM) callback(getLocalTeams());
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -356,23 +430,33 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
         q,
         (snapshot) => {
           if (!snapshot.empty) {
-            const data = snapshot.docs[0].data() as Team;
-            if (!data.logoUrl || data.logoUrl.endsWith('.jpg')) {
-              data.logoUrl = '/team_logo.png';
+            const remoteList = snapshot.docs.map((d) => {
+              const data = d.data() as Team;
+              if (!data.logoUrl || data.logoUrl.endsWith('.jpg')) {
+                data.logoUrl = '/team_logo.png';
+              }
+              return data;
+            });
+            localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(remoteList));
+            
+            // Check active team
+            const activeId = getActiveTeamId();
+            const currentActive = remoteList.find((t) => t.id === activeId) || remoteList[0];
+            if (currentActive) {
+              localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(currentActive));
+              localStorage.setItem(STORAGE_KEYS.ACTIVE_TEAM_ID, currentActive.id);
             }
-            localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(data));
-            callback(data);
+            callback(remoteList);
           } else {
-            // If cloud is empty, seed with local team
-            const currentLocal = getLocalTeam();
-            if (currentLocal) {
-              setDoc(doc(targetDb, 'teams', currentLocal.id), cleanForFirestore(currentLocal)).catch(() => {});
-            }
+            const currentLocal = getLocalTeams();
+            currentLocal.forEach((t) => {
+              setDoc(doc(targetDb, 'teams', t.id), cleanForFirestore(t)).catch(() => {});
+            });
           }
         },
         (error) => {
           console.warn('Teams firestore subscription warning:', error);
-          callback(getLocalTeam());
+          callback(getLocalTeams());
         }
       );
     } catch (err) {
@@ -387,22 +471,150 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
   };
 }
 
+export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscribe {
+  const localTeam = getLocalTeam();
+  callback(localTeam);
+
+  const handleMessage = (e: MessageEvent) => {
+    if (e.data?.topic === 'team' || e.data?.topic === 'teams') callback(getLocalTeam());
+  };
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEYS.TEAM || e.key === STORAGE_KEYS.TEAMS || e.key === STORAGE_KEYS.ACTIVE_TEAM_ID) {
+      callback(getLocalTeam());
+    }
+  };
+
+  syncChannel?.addEventListener('message', handleMessage);
+  window.addEventListener('storage', handleStorage);
+
+  let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
+
+  if (targetDb) {
+    try {
+      const q = query(collection(targetDb, 'teams'));
+      firestoreUnsub = onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteList = snapshot.docs.map((d) => {
+              const data = d.data() as Team;
+              if (!data.logoUrl || data.logoUrl.endsWith('.jpg')) {
+                data.logoUrl = '/team_logo.png';
+              }
+              return data;
+            });
+            localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(remoteList));
+            const activeId = getActiveTeamId();
+            const matchingTeam = remoteList.find((t) => t.id === activeId) || remoteList[0];
+            if (matchingTeam) {
+              localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(matchingTeam));
+              callback(matchingTeam);
+            }
+          } else {
+            const currentLocal = getLocalTeam();
+            if (currentLocal) {
+              setDoc(doc(targetDb, 'teams', currentLocal.id), cleanForFirestore(currentLocal)).catch(() => {});
+            }
+          }
+        },
+        (error) => {
+          console.warn('Team firestore subscription warning:', error);
+          callback(getLocalTeam());
+        }
+      );
+    } catch (err) {
+      console.warn('Team firestore error:', err);
+    }
+  }
+
+  return () => {
+    firestoreUnsub?.();
+    syncChannel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
 export async function saveTeam(team: Team): Promise<void> {
-  const updatedTeam = {
+  const updatedTeam: Team = {
     ...team,
+    id: team.id || generateUUID(),
     logoUrl: (!team.logoUrl || team.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : team.logoUrl,
     updatedAt: new Date().toISOString(),
   };
 
-  // Update local cache
-  localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(updatedTeam));
+  // Update in teams list
+  const currentTeams = getLocalTeams();
+  const existingIdx = currentTeams.findIndex((t) => t.id === updatedTeam.id);
+  let updatedList: Team[];
+  if (existingIdx >= 0) {
+    updatedList = [...currentTeams];
+    updatedList[existingIdx] = updatedTeam;
+  } else {
+    updatedList = [...currentTeams, updatedTeam];
+  }
+  localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(updatedList));
+
+  // If this is the active team, update active storage
+  if (updatedTeam.id === getActiveTeamId() || currentTeams.length === 0) {
+    localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(updatedTeam));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TEAM_ID, updatedTeam.id);
+  }
+
   notifySync('team');
+  notifySync('teams');
 
   // Push to Cloud Firestore
   const targetDb = db;
   if (targetDb) {
-    const teamRef = doc(targetDb, 'teams', updatedTeam.id);
-    await setDoc(teamRef, cleanForFirestore(updatedTeam));
+    try {
+      const teamRef = doc(targetDb, 'teams', updatedTeam.id);
+      await setDoc(teamRef, cleanForFirestore(updatedTeam));
+    } catch (err) {
+      console.warn('Error saving team to Firestore:', err);
+    }
+  }
+}
+
+export async function createTeam(newTeamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>): Promise<Team> {
+  const newTeam: Team = {
+    ...newTeamData,
+    id: generateUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    logoUrl: (!newTeamData.logoUrl || newTeamData.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : newTeamData.logoUrl,
+  };
+
+  await saveTeam(newTeam);
+  setActiveTeamId(newTeam.id);
+  return newTeam;
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+  const currentTeams = getLocalTeams();
+  if (currentTeams.length <= 1) {
+    throw new Error('No se puede eliminar el único equipo registrado. Debe haber al menos un equipo en la app.');
+  }
+
+  const updatedList = currentTeams.filter((t) => t.id !== teamId);
+  localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(updatedList));
+
+  if (teamId === getActiveTeamId()) {
+    const nextActive = updatedList[0];
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TEAM_ID, nextActive.id);
+    localStorage.setItem(STORAGE_KEYS.TEAM, JSON.stringify(nextActive));
+  }
+
+  notifySync('team');
+  notifySync('teams');
+
+  const targetDb = db;
+  if (targetDb) {
+    try {
+      await deleteDoc(doc(targetDb, 'teams', teamId));
+    } catch (err) {
+      console.warn('Error deleting team from Firestore:', err);
+    }
   }
 }
 
@@ -411,17 +623,27 @@ export async function saveTeam(team: Team): Promise<void> {
 // ==========================================
 
 export function subscribeToTournaments(
-  _teamId: string,
+  teamId: string,
   callback: (tournaments: Tournament[]) => void
 ): Unsubscribe {
-  const localList = getLocalTournaments();
-  callback(localList);
+  const filterByTeam = (list: Tournament[]) => {
+    if (!teamId) return list;
+    return list.filter((t) => {
+      // Discriminate tournaments strictly per team
+      if (t.teamId) {
+        return t.teamId === teamId;
+      }
+      return teamId === DEFAULT_TEAM_ID;
+    });
+  };
+
+  callback(filterByTeam(getLocalTournaments()));
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'tournaments') callback(getLocalTournaments());
+    if (e.data?.topic === 'tournaments') callback(filterByTeam(getLocalTournaments()));
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.TOURNAMENTS) callback(getLocalTournaments());
+    if (e.key === STORAGE_KEYS.TOURNAMENTS) callback(filterByTeam(getLocalTournaments()));
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -436,22 +658,23 @@ export function subscribeToTournaments(
       firestoreUnsub = onSnapshot(
         q,
         (snapshot) => {
-          if (!snapshot.empty) {
-            const remoteList = snapshot.docs.map((d) => d.data() as Tournament);
-            localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(remoteList));
-            callback(remoteList);
+          const remoteList = snapshot.docs.map((d) => d.data() as Tournament);
+          const rawLocal = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
+          if (snapshot.empty && rawLocal === null) {
+            const initial = INITIAL_TOURNAMENTS;
+            localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(initial));
+            initial.forEach((t) => {
+              setDoc(doc(targetDb, 'tournaments', t.id), cleanForFirestore(t)).catch(() => {});
+            });
+            callback(filterByTeam(initial));
           } else {
-            const currentLocal = getLocalTournaments();
-            if (currentLocal.length > 0) {
-              currentLocal.forEach((t) => {
-                setDoc(doc(targetDb, 'tournaments', t.id), cleanForFirestore(t)).catch(() => {});
-              });
-            }
+            localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(remoteList));
+            callback(filterByTeam(remoteList));
           }
         },
         (error) => {
           console.warn('Tournaments snapshot warning:', error);
-          callback(getLocalTournaments());
+          callback(filterByTeam(getLocalTournaments()));
         }
       );
     } catch (err) {
@@ -467,27 +690,50 @@ export function subscribeToTournaments(
 }
 
 export async function saveTournament(tournament: Tournament): Promise<void> {
-  const updated = {
+  const updated: Tournament = {
     ...tournament,
     id: tournament.id || generateUUID(),
+    teamId: tournament.teamId || getActiveTeamId(),
     updatedAt: new Date().toISOString(),
   };
 
-  const raw = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
-  let list: Tournament[] = raw ? JSON.parse(raw) : INITIAL_TOURNAMENTS;
-  const index = list.findIndex((t) => t.id === updated.id);
+  const currentList = getLocalTournaments();
+  const index = currentList.findIndex((t) => t.id === updated.id);
+  let updatedList: Tournament[];
   if (index >= 0) {
-    list[index] = updated;
+    updatedList = [...currentList];
+    updatedList[index] = updated;
   } else {
-    list.push(updated);
+    updatedList = [...currentList, updated];
   }
-  localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(list));
+
+  localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(updatedList));
   notifySync('tournaments');
 
   const targetDb = db;
   if (targetDb) {
-    const docRef = doc(targetDb, 'tournaments', updated.id);
-    await setDoc(docRef, cleanForFirestore(updated));
+    try {
+      const docRef = doc(targetDb, 'tournaments', updated.id);
+      await setDoc(docRef, cleanForFirestore(updated));
+    } catch (err) {
+      console.warn('Error saving tournament to Firestore:', err);
+    }
+  }
+}
+
+export async function deleteTournament(tournamentId: string): Promise<void> {
+  const currentList = getLocalTournaments();
+  const filtered = currentList.filter((t) => t.id !== tournamentId);
+  localStorage.setItem(STORAGE_KEYS.TOURNAMENTS, JSON.stringify(filtered));
+  notifySync('tournaments');
+
+  const targetDb = db;
+  if (targetDb) {
+    try {
+      await deleteDoc(doc(targetDb, 'tournaments', tournamentId));
+    } catch (err) {
+      console.warn('Error deleting tournament from Firestore:', err);
+    }
   }
 }
 

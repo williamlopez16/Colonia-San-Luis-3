@@ -8,6 +8,8 @@ import React, { useState, useEffect } from 'react';
 import type { Team, Tournament, Player, Concept, Match, Charge } from './types';
 import {
   subscribeToTeam,
+  subscribeToTeams,
+  setActiveTeamId,
   subscribeToTournaments,
   subscribeToPlayers,
   subscribeToConcepts,
@@ -45,6 +47,7 @@ export default function App() {
 
   // Application Data States
   const [team, setTeam] = useState<Team | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -105,13 +108,19 @@ export default function App() {
     };
   }, []);
 
-  // 1. Subscribe to Team
+  // 1. Subscribe to Active Team & Teams Catalog
   useEffect(() => {
-    const unsubscribe = subscribeToTeam((loadedTeam) => {
+    const unsubscribeTeam = subscribeToTeam((loadedTeam) => {
       setTeam(loadedTeam);
       setIsInitialLoading(false);
     });
-    return () => unsubscribe();
+    const unsubscribeTeams = subscribeToTeams((loadedTeams) => {
+      setTeams(loadedTeams);
+    });
+    return () => {
+      unsubscribeTeam();
+      unsubscribeTeams();
+    };
   }, []);
 
   // 2. Subscribe to Tournaments, Players, Concepts, Matches
@@ -254,6 +263,7 @@ export default function App() {
         {/* Main App Header with Tabs & Install Button */}
         <Header
           team={team}
+          teams={teams}
           activeTab={activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab);
@@ -263,6 +273,7 @@ export default function App() {
           }}
           onOpenTeamModal={() => setShowTeamModal(true)}
           onOpenAdminModal={() => setShowAdminModal(true)}
+          onSelectTeam={(tId) => setActiveTeamId(tId)}
         />
 
       {/* Main Content Area */}
@@ -271,6 +282,7 @@ export default function App() {
         {activeTab === 'home' && (
           <DashboardView
             team={team}
+            teams={teams}
             matches={matches}
             players={players}
             charges={charges}
@@ -282,6 +294,7 @@ export default function App() {
             onOpenAIPrompt={handleOpenAIPrompt}
             onOpenPostMatch={handleOpenPostMatch}
             onOpenMatchStats={handleOpenMatchStats}
+            onSelectTeam={(tId) => setActiveTeamId(tId)}
             onNavigateToTab={(tab) => {
               setActiveTab(tab);
               setIsCreatingMatch(false);
@@ -385,8 +398,10 @@ export default function App() {
         {activeTab === 'team' && (
           <TeamTournamentModal
             team={team}
+            teams={teams}
             tournaments={tournaments}
-            onClose={() => setActiveTab('matches')}
+            onClose={() => setActiveTab('home')}
+            onSelectTeam={(tId) => setActiveTeamId(tId)}
           />
         )}
       </main>
@@ -425,12 +440,19 @@ export default function App() {
 
       {/* Modal: Team & Tournament Settings (Opened from Header) */}
       {showTeamModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-3xl my-6">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowTeamModal(false);
+          }}
+        >
+          <div className="w-full max-w-4xl my-4 sm:my-6">
             <TeamTournamentModal
               team={team}
+              teams={teams}
               tournaments={tournaments}
               onClose={() => setShowTeamModal(false)}
+              onSelectTeam={(tId) => setActiveTeamId(tId)}
             />
           </div>
         </div>

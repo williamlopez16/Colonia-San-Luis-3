@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAccessMode } from '../context/AccessModeContext';
-import { Lock, Unlock, Eye, EyeOff, X, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, X, AlertCircle } from 'lucide-react';
 
 interface AdminAccessModalProps {
   isOpen: boolean;
@@ -74,33 +74,6 @@ export const AdminAccessModal: React.FC<AdminAccessModalProps> = ({
           <p className="text-xs text-gray-600 leading-relaxed">
             Ingresa la clave de administrador/DT para habilitar la creación y edición de partidos, convocatoria, cobros y plantilla.
           </p>
-
-          {/* Quick unlock helper for initial/existing teams */}
-          <div className="bg-emerald-50 rounded-2xl p-3 border border-emerald-200 text-xs text-emerald-950 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Clave por defecto: <code className="bg-white px-1.5 py-0.5 rounded border border-emerald-300 font-bold font-mono text-emerald-900">admin</code></span>
-            </div>
-            <p className="text-[11px] text-emerald-700 leading-relaxed">
-              Si tu equipo ya estaba creado antes o aún no cambiaste la clave, puedes ingresar inmediatamente con <strong>admin</strong>.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setPassword('admin');
-                const success = unlockAdminMode('admin');
-                if (success) {
-                  if (onSuccess) onSuccess();
-                  onClose();
-                } else {
-                  setErrorMessage('No se pudo desbloquear con "admin". Ingresa la clave configurada.');
-                }
-              }}
-              className="w-full py-1.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs transition cursor-pointer shadow-xs"
-            >
-              Desbloquear con clave "admin"
-            </button>
-          </div>
 
           {errorMessage && (
             <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-center gap-2 animate-shake">
