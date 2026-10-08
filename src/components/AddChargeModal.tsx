@@ -47,6 +47,7 @@ export const AddChargeModal: React.FC<AddChargeModalProps> = ({
   // Form states
   const [conceptName, setConceptName] = useState<string>('');
   const [amountStr, setAmountStr] = useState<string>('');
+  const [notesStr, setNotesStr] = useState<string>('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(() => {
     if (preselectedPlayerId) {
       return new Set([preselectedPlayerId]);
@@ -120,6 +121,7 @@ export const AddChargeModal: React.FC<AddChargeModalProps> = ({
             type: 'esporadico',
             amount: cleanAmount,
             status: 'Pendiente',
+            notes: notesStr.trim() || undefined,
             createdAt: now,
             updatedAt: now,
           });
@@ -232,6 +234,20 @@ export const AddChargeModal: React.FC<AddChargeModalProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Optional Note / Observación */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+              Nota / Motivo Opcional (ej. cuota especial, detalle)
+            </label>
+            <input
+              type="text"
+              value={notesStr}
+              onChange={(e) => setNotesStr(e.target.value)}
+              placeholder="Escribe alguna observación o motivo opcional..."
+              className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-xs font-medium text-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-hidden transition"
+            />
           </div>
 
           {/* Player Selection */}

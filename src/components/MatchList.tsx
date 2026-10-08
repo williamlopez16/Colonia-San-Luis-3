@@ -271,130 +271,136 @@ export const MatchList: React.FC<MatchListProps> = ({
                 </div>
 
                 {/* 3. Footer Bar: Attendance Counters & Action Buttons */}
-                <div className="bg-gray-50/80 px-5 py-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  {/* Attendance Pills */}
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="flex items-center gap-1 bg-white border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-xl font-bold shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{confirmedCount}</span>
-                      <span className="text-[10px] font-medium text-emerald-600">Confirmados</span>
+                <div className="bg-gray-50/90 px-4 sm:px-5 py-3.5 border-t border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+                  {/* Attendance Summary Group */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                    {/* Micro Progress Bar */}
+                    <div className="w-full sm:w-28 bg-gray-200 rounded-full h-2 overflow-hidden flex shadow-inner flex-shrink-0" title={`Confirmados: ${confirmedCount}, No van: ${declinedCount}, Pendientes: ${pendingCount}`}>
+                      <div
+                        style={{ width: `${totalCount > 0 ? (confirmedCount / totalCount) * 100 : 0}%` }}
+                        className="bg-emerald-500 h-full transition-all"
+                      />
+                      <div
+                        style={{ width: `${totalCount > 0 ? (declinedCount / totalCount) * 100 : 0}%` }}
+                        className="bg-rose-500 h-full transition-all"
+                      />
+                      <div
+                        style={{ width: `${totalCount > 0 ? (pendingCount / totalCount) * 100 : 0}%` }}
+                        className="bg-amber-400 h-full transition-all"
+                      />
                     </div>
 
-                    <div className="flex items-center gap-1 bg-white border border-red-200 text-red-800 px-2.5 py-1 rounded-xl font-bold shadow-2xs">
-                      <XCircle className="w-3.5 h-3.5 text-red-600" />
-                      <span>{declinedCount}</span>
-                      <span className="text-[10px] font-medium text-red-600">No</span>
-                    </div>
+                    {/* Status Badges Row */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Confirmados */}
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-900 border border-emerald-200/90 px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                        <span>{confirmedCount}</span>
+                        <span className="text-[10px] font-bold text-emerald-700">Confirmados</span>
+                      </span>
 
-                    <div className="flex items-center gap-1 bg-white border border-amber-200 text-amber-800 px-2.5 py-1 rounded-xl font-bold shadow-2xs">
-                      <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-                      <span>{pendingCount}</span>
-                      <span className="text-[10px] font-medium text-amber-600">Pend.</span>
-                    </div>
+                      {/* No Asisten */}
+                      <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-900 border border-rose-200/90 px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs">
+                        <XCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                        <span>{declinedCount}</span>
+                        <span className="text-[10px] font-bold text-rose-700">No van</span>
+                      </span>
 
-                    <span className="text-[11px] text-gray-400 font-medium">
-                      Total: {totalCount}
-                    </span>
+                      {/* Pendientes */}
+                      <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-950 border border-amber-200/90 px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs">
+                        <HelpCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                        <span>{pendingCount}</span>
+                        <span className="text-[10px] font-bold text-amber-800">Pendientes</span>
+                      </span>
+
+                      <span className="text-[11px] text-gray-500 font-bold ml-1">
+                        / {totalCount} conv.
+                      </span>
+                    </div>
                   </div>
 
                   {/* Actions Toolbar */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 justify-end flex-wrap">
-                    {/* Botón Cartelera */}
+                  <div className="flex items-center gap-2 justify-end flex-wrap">
+                    {/* Botón Unificado Cartelera & IA */}
                     {onOpenMatchdayGraphic && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onOpenMatchdayGraphic(match);
                         }}
-                        className="px-2.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                        title="Ver o descargar cartelera matchday"
+                        className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                        title="Cartelera oficial HD y generador de prompts para IA"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Cartelera</span>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+                        <span>Cartelera & IA</span>
                       </button>
                     )}
 
-                    {/* Botón Prompt IA */}
-                    {onOpenAIPrompt && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenAIPrompt(match);
-                        }}
-                        className="px-2 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
-                        title="Copiar prompt para IA"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-purple-700" />
-                        <span className="hidden sm:inline">Prompt IA</span>
-                      </button>
-                    )}
-
-                    {/* Botón Control Post-Partido */}
+                    {/* Botón Arbitraje del Partido */}
                     {onOpenPostMatch && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onOpenPostMatch(match);
                         }}
-                        className="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                        title="Re-validar asistencia real y pago de arbitraje"
+                        className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                        title="Gestión de arbitraje, pagos y cuotas de este partido"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                        <span>Post-Partido</span>
+                        <DollarSign className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" />
+                        <span>Arbitraje</span>
                       </button>
                     )}
 
-                    {/* Botón Cargar/Ver Estadísticas */}
+                    {/* Botón Cargar/Ver Marcador & Estadísticas */}
                     {(isAdminMode || isFinished) && (
                       <button
                         onClick={(e) => handleOpenStats(e, match.id)}
-                        className="px-2.5 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-xs flex items-center gap-1 shadow-xs hover:shadow-sm transition cursor-pointer"
+                        className="px-3 py-2 rounded-xl bg-gray-900 hover:bg-black text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
                         title={isAdminMode ? 'Cargar o editar goles, asistencias y tarjetas' : 'Ver estadísticas del partido'}
                       >
-                        <BarChart2 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Stats</span>
+                        <BarChart2 className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                        <span>Marcador</span>
                       </button>
                     )}
 
-                    {/* Copiar enlace */}
+                    {/* Botón Copiar enlace */}
                     <button
                       onClick={(e) => handleCopyLink(e, match.id)}
-                      className="p-1.5 sm:px-2.5 sm:py-1.5 text-gray-600 hover:text-emerald-700 hover:bg-white bg-gray-100 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-semibold border border-gray-200 shadow-2xs"
+                      className="px-3 py-2 text-gray-700 hover:text-emerald-800 hover:bg-emerald-50 bg-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold border border-gray-200 shadow-2xs active:scale-95"
                       title="Copiar enlace de confirmación"
                     >
-                      <Share2 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">
-                        {copiedId === match.id ? '¡Copiado!' : 'Enlace'}
-                      </span>
+                      <Share2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <span>{copiedId === match.id ? '¡Copiado!' : 'Enlace'}</span>
                     </button>
 
-                    {/* Editar Partido (solo admin) */}
+                    {/* Botón Editar Partido (solo admin) */}
                     {isAdminMode && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onEditMatch(match);
                         }}
-                        className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition cursor-pointer"
+                        className="px-2.5 py-2 text-gray-700 hover:text-emerald-800 hover:bg-emerald-50 bg-white rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-bold border border-gray-200 shadow-2xs active:scale-95"
                         title="Editar datos del partido y convocados"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5 text-gray-500" />
+                        <span>Editar</span>
                       </button>
                     )}
 
-                    {/* Eliminar (solo admin) */}
+                    {/* Botón Eliminar (solo admin) */}
                     {isAdminMode && (
                       <button
                         onClick={(e) => handleDelete(e, match.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 bg-white rounded-xl transition-all cursor-pointer border border-gray-200 shadow-2xs active:scale-95"
                         title="Eliminar partido"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
 
-                    {/* Ver Convocatoria Flecha */}
-                    <div className="p-1 text-emerald-600 group-hover:translate-x-0.5 transition transform">
+                    {/* Flecha Convocatoria */}
+                    <div className="p-1 text-emerald-700 group-hover:translate-x-1 transition-transform" title="Abrir convocatoria">
                       <ChevronRight className="w-5 h-5" />
                     </div>
                   </div>

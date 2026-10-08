@@ -22,7 +22,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Nequi');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(charge.paymentMethod || 'Nequi');
+  const [paymentNote, setPaymentNote] = useState<string>(charge.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +37,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     setIsSubmitting(true);
     setError(null);
     try {
-      await markChargePaid(charge.id, selectedMethod);
+      await markChargePaid(charge.id, selectedMethod, paymentNote);
       if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
@@ -116,6 +117,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 );
               })}
             </div>
+          </div>
+
+          {/* Optional Note / Observación */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+              Nota / Mensaje Opcional (ej. motivo, comprobante):
+            </label>
+            <input
+              type="text"
+              value={paymentNote}
+              onChange={(e) => setPaymentNote(e.target.value)}
+              placeholder="Escribe algún motivo o nota sobre este pago/beca..."
+              className="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 bg-gray-50 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-300 text-gray-800"
+            />
           </div>
 
           {/* Actions */}

@@ -171,6 +171,7 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
   const confirmedCount = match.callups.filter((c) => c.status === 'Confirmado').length;
   const declinedCount = match.callups.filter((c) => c.status === 'No asiste').length;
   const pendingCount = match.callups.filter((c) => c.status === 'Pendiente').length;
+  const totalCallups = match.callups.length;
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6">
@@ -266,18 +267,36 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
           )}
 
           {/* Real-time counters banner */}
-          <div className="p-4 grid grid-cols-3 gap-2 text-center">
-            <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-200">
-              <span className="block text-xs font-bold text-emerald-800">Confirmados</span>
-              <span className="text-xl font-black text-emerald-700">{confirmedCount}</span>
+          <div className="p-4 bg-gray-50/50 space-y-2.5 border-t border-gray-100">
+            {/* Proportional Segmented Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden flex">
+              <div
+                style={{ width: `${totalCallups > 0 ? (confirmedCount / totalCallups) * 100 : 0}%` }}
+                className="bg-emerald-500 h-full transition-all"
+              />
+              <div
+                style={{ width: `${totalCallups > 0 ? (declinedCount / totalCallups) * 100 : 0}%` }}
+                className="bg-red-500 h-full transition-all"
+              />
+              <div
+                style={{ width: `${totalCallups > 0 ? (pendingCount / totalCallups) * 100 : 0}%` }}
+                className="bg-amber-400 h-full transition-all"
+              />
             </div>
-            <div className="bg-red-50 p-2 rounded-xl border border-red-200">
-              <span className="block text-xs font-bold text-red-800">No Asisten</span>
-              <span className="text-xl font-black text-red-700">{declinedCount}</span>
-            </div>
-            <div className="bg-amber-50 p-2 rounded-xl border border-amber-200">
-              <span className="block text-xs font-bold text-amber-800">Pendientes</span>
-              <span className="text-xl font-black text-amber-700">{pendingCount}</span>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-emerald-50/90 p-2 rounded-xl border border-emerald-200 shadow-2xs">
+                <span className="block text-[11px] font-bold text-emerald-800">Confirmados</span>
+                <span className="text-lg sm:text-xl font-black text-emerald-950 font-mono">{confirmedCount}</span>
+              </div>
+              <div className="bg-red-50/90 p-2 rounded-xl border border-red-200 shadow-2xs">
+                <span className="block text-[11px] font-bold text-red-800">No Asisten</span>
+                <span className="text-lg sm:text-xl font-black text-red-950 font-mono">{declinedCount}</span>
+              </div>
+              <div className="bg-amber-50/90 p-2 rounded-xl border border-amber-200 shadow-2xs">
+                <span className="block text-[11px] font-bold text-amber-800">Pendientes</span>
+                <span className="text-lg sm:text-xl font-black text-amber-950 font-mono">{pendingCount}</span>
+              </div>
             </div>
           </div>
         </div>

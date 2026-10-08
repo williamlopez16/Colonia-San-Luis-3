@@ -50,6 +50,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [idCard, setIdCard] = useState<string>('');
   const [eps, setEps] = useState<string>('');
   const [status, setStatus] = useState<PlayerStatus>('Activo');
+  const [isScholarship, setIsScholarship] = useState<boolean>(false);
 
   // UI feedback
   const [formError, setFormError] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setIdCard('');
     setEps('');
     setStatus('Activo');
+    setIsScholarship(false);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -76,6 +78,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setIdCard(player.idCard || '');
     setEps(player.eps || '');
     setStatus(player.status);
+    setIsScholarship(!!player.isScholarship);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -140,6 +143,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         idCard: idCard.trim() || '',
         eps: eps.trim() || '',
         status,
+        isScholarship,
         createdAt: editingPlayer?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -301,6 +305,11 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                           {player.eps && (
                             <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
                               {player.eps}
+                            </span>
+                          )}
+                          {player.isScholarship && (
+                            <span className="text-[10px] font-bold bg-purple-100 text-purple-900 px-2 py-0.5 rounded-full border border-purple-200">
+                              🎓 Becado
                             </span>
                           )}
                         </div>
@@ -539,6 +548,31 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Becado / Exento de cuotas */}
+              <div className="p-3.5 rounded-2xl border border-purple-200 bg-purple-50/70 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                    🎓 Jugador Becado / Exento
+                  </span>
+                  <p className="text-[11px] text-purple-800/80 mt-0.5">
+                    Exento de cuota fija de arbitraje en los partidos por defecto.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsScholarship(!isScholarship)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isScholarship ? 'bg-purple-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      isScholarship ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
               <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">

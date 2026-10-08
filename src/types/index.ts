@@ -42,6 +42,7 @@ export interface Player {
   idCard?: string; // Cédula (optional)
   eps?: string; // EPS (optional)
   status: PlayerStatus;
+  isScholarship?: boolean; // ¿Jugador becado / exento de cuotas?
   createdAt: string;
   updatedAt: string;
 }
@@ -67,9 +68,11 @@ export interface Callup {
   // Post-match validation fields
   attended?: boolean; // Re-validación: true si asistió a la cancha, false si faltó tras confirmar
   arbitrationPaid?: boolean; // Check simple: ¿Pagó su cuota de arbitraje?
-  arbitrationAmount?: number; // Valor de la cuota de arbitraje
+  arbitrationAmount?: number; // Valor personalizado de la cuota de arbitraje (puede ser mayor o menor)
   arbitrationMethod?: PaymentMethod; // Método de pago (Efectivo, Nequi, etc.)
   arbitrationChargeId?: string; // ID del cobro vinculado en finanzas
+  isScholarship?: boolean; // ¿Marcado como becado en este partido?
+  arbitrationNote?: string; // Nota / mensaje / motivo de beca o aporte ese día
 }
 
 export type MatchState = 'Programado' | 'Finalizado';
@@ -136,6 +139,8 @@ export interface Charge {
   amount: number;
   status: ChargeStatus;
   paymentMethod?: PaymentMethod;
+  isScholarship?: boolean; // Indicador de cuota becada / exenta
+  notes?: string; // Motivo de beca o notas de pago / mensaje explicativo
   paidAt?: string;
   createdAt: string;
   updatedAt: string;

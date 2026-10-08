@@ -10,6 +10,7 @@ import {
   subscribeToTeam,
   subscribeToTeams,
   setActiveTeamId,
+  getLocalTeams,
   subscribeToTournaments,
   subscribeToPlayers,
   subscribeToConcepts,
@@ -60,6 +61,7 @@ export default function App() {
   const [isCreatingMatch, setIsCreatingMatch] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [graphicMatch, setGraphicMatch] = useState<Match | null>(null);
+  const [graphicInitialTab, setGraphicInitialTab] = useState<'designer' | 'ai'>('designer');
   const [aiPromptMatch, setAiPromptMatch] = useState<Match | null>(null);
   const [postMatchMatch, setPostMatchMatch] = useState<Match | null>(null);
   const [showTeamModal, setShowTeamModal] = useState<boolean>(false);
@@ -186,12 +188,14 @@ export default function App() {
     setActiveTab('matches');
   };
 
-  const handleOpenMatchdayGraphic = (match: Match) => {
+  const handleOpenMatchdayGraphic = (match: Match, tab: 'designer' | 'ai' = 'designer') => {
+    setGraphicInitialTab(tab);
     setGraphicMatch(match);
   };
 
   const handleOpenAIPrompt = (match: Match) => {
-    setAiPromptMatch(match);
+    setGraphicInitialTab('ai');
+    setGraphicMatch(match);
   };
 
   const handleOpenPostMatch = (match: Match) => {
@@ -200,6 +204,18 @@ export default function App() {
 
   const handleOpenMatchStats = (matchId: string) => {
     setStatsMatchId(matchId);
+  };
+
+  const handleSelectTeam = (teamId: string) => {
+    setActiveTeamId(teamId);
+    const all = teams && teams.length > 0 ? teams : getLocalTeams();
+    const found = all.find((t) => t.id === teamId) || getLocalTeams().find((t) => t.id === teamId);
+    if (found) {
+      setTeam(found);
+    }
+    setSelectedMatchId(null);
+    setIsCreatingMatch(false);
+    setEditingMatch(null);
   };
 
   const handleDeleteMatch = async (matchId: string) => {
@@ -273,7 +289,7 @@ export default function App() {
           }}
           onOpenTeamModal={() => setShowTeamModal(true)}
           onOpenAdminModal={() => setShowAdminModal(true)}
-          onSelectTeam={(tId) => setActiveTeamId(tId)}
+          onSelectTeam={handleSelectTeam}
         />
 
       {/* Main Content Area */}
@@ -294,7 +310,7 @@ export default function App() {
             onOpenAIPrompt={handleOpenAIPrompt}
             onOpenPostMatch={handleOpenPostMatch}
             onOpenMatchStats={handleOpenMatchStats}
-            onSelectTeam={(tId) => setActiveTeamId(tId)}
+            onSelectTeam={handleSelectTeam}
             onNavigateToTab={(tab) => {
               setActiveTab(tab);
               setIsCreatingMatch(false);
@@ -401,7 +417,8 @@ export default function App() {
             teams={teams}
             tournaments={tournaments}
             onClose={() => setActiveTab('home')}
-            onSelectTeam={(tId) => setActiveTeamId(tId)}
+            onSelectTeam={handleSelectTeam}
+            initialSubTab="tournaments"
           />
         )}
       </main>
@@ -452,17 +469,19 @@ export default function App() {
               teams={teams}
               tournaments={tournaments}
               onClose={() => setShowTeamModal(false)}
-              onSelectTeam={(tId) => setActiveTeamId(tId)}
+              onSelectTeam={handleSelectTeam}
+              initialSubTab="teams"
             />
           </div>
         </div>
       )}
 
-      {/* Modal: Matchday Visual Graphic (Canvas 1:1 & Story 9:16) */}
+      {/* Modal: Matchday Visual Graphic & AI Studio */}
       {graphicMatch && (
         <MatchdayGraphicModal
           team={team}
           match={graphicMatch}
+          initialTab={graphicInitialTab}
           onClose={() => setGraphicMatch(null)}
         />
       )}
@@ -481,6 +500,7 @@ export default function App() {
         <PostMatchModal
           team={team}
           match={postMatchMatch}
+          players={players}
           onClose={() => setPostMatchMatch(null)}
         />
       )}

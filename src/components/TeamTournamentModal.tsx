@@ -40,6 +40,7 @@ interface TeamTournamentModalProps {
   onClose?: () => void;
   onSelectTeam?: (teamId: string) => void;
   isInitialSetup?: boolean;
+  initialSubTab?: 'teams' | 'tournaments';
 }
 
 export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
@@ -49,13 +50,20 @@ export const TeamTournamentModal: React.FC<TeamTournamentModalProps> = ({
   onClose,
   onSelectTeam,
   isInitialSetup = false,
+  initialSubTab = 'tournaments',
 }) => {
   const { isAdminMode, unlockAdminMode } = useAccessMode();
   // Anyone in player mode can see all teams and tournaments, but CANNOT edit anything
   const canEdit = isAdminMode || isInitialSetup;
 
   // Internal sub-tab: 'teams' (Gestión de Equipos) or 'tournaments' (Catálogo de Torneos)
-  const [activeSubTab, setActiveSubTab] = useState<'teams' | 'tournaments'>('teams');
+  const [activeSubTab, setActiveSubTab] = useState<'teams' | 'tournaments'>(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // List of teams (uses prop or local fallback)
   const [teamsList, setTeamsList] = useState<Team[]>(() => {

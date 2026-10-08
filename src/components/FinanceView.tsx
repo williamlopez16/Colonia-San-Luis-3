@@ -5,6 +5,7 @@ import { formatMatchDate } from '../services/whatsappService';
 import { AddChargeModal } from './AddChargeModal';
 import { PaymentModal } from './PaymentModal';
 import { PlayerFinanceModal } from './PlayerFinanceModal';
+import { ConceptDetailModal } from './ConceptDetailModal';
 import {
   DollarSign,
   TrendingUp,
@@ -52,6 +53,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [isAddChargeOpen, setIsAddChargeOpen] = useState(false);
   const [selectedChargeForPayment, setSelectedChargeForPayment] = useState<Charge | null>(null);
   const [selectedPlayerForFinance, setSelectedPlayerForFinance] = useState<Player | null>(null);
+  const [selectedConceptForDetail, setSelectedConceptForDetail] = useState<{
+    conceptName: string;
+    conceptType: 'arbitraje' | 'esporadico';
+  } | null>(null);
 
   // Match lookup map
   const matchMap = useMemo(() => new Map(matches.map((m) => [m.id, m])), [matches]);
@@ -387,14 +392,19 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
       {/* Section 1: Desglose por Concepto */}
       <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-xs">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <PieChart className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-extrabold text-sm sm:text-base text-gray-900">
-              Desglose por Concepto
-            </h3>
+        <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-extrabold text-sm sm:text-base text-gray-900">
+                Desglose por Concepto
+              </h3>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Toca cualquier concepto para abrir su detalle completo, ver jugadores, registrar pagos y editar cuotas.
+            </p>
           </div>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl self-start sm:self-auto">
             {conceptBreakdown.length} conceptos activos
           </span>
         </div>
@@ -412,20 +422,28 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               return (
                 <div
                   key={item.conceptName}
-                  className="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 space-y-3"
+                  onClick={() =>
+                    setSelectedConceptForDetail({
+                      conceptName: item.conceptName,
+                      conceptType: item.type,
+                    })
+                  }
+                  className="bg-gray-50/80 hover:bg-white rounded-2xl p-4 border border-gray-200/90 hover:border-emerald-500 hover:shadow-md transition-all cursor-pointer group active:scale-[0.99] space-y-3"
+                  title="Toca para abrir el detalle y administrar cobros de este concepto"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-extrabold text-sm text-gray-900 leading-tight">
-                        {item.conceptName}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-sm text-gray-900 group-hover:text-emerald-800 transition-colors leading-tight truncate flex items-center gap-1.5">
+                        <span className="truncate">{item.conceptName}</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600 transition-colors flex-shrink-0" />
                       </h4>
-                      <span className="text-[10px] text-gray-400 font-semibold uppercase">
+                      <span className="text-[10px] text-gray-400 font-semibold uppercase block mt-0.5">
                         {item.type === 'arbitraje' ? '⚽ Arbitraje' : '📦 Esporádico'} ({item.count} cobros)
                       </span>
                     </div>
 
                     <span
-                      className={`text-xs font-black px-2 py-0.5 rounded-lg font-mono ${
+                      className={`text-xs font-black px-2 py-0.5 rounded-lg font-mono flex-shrink-0 ${
                         pct === 100
                           ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-amber-100 text-amber-900'
@@ -464,6 +482,17 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                         {formatCurrency(item.pending)}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Bottom indicator */}
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] font-bold text-emerald-700 group-hover:text-emerald-800">
+                    <span className="flex items-center gap-1">
+                      <span>Ver y gestionar cobros</span>
+                      {isAdminMode && (
+                        <span className="text-[10px] font-normal text-gray-400">• Editar</span>
+                      )}
+                    </span>
+                    <span className="group-hover:translate-x-0.5 transition-transform">→</span>
                   </div>
                 </div>
               );
@@ -624,6 +653,20 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         <PaymentModal
           charge={selectedChargeForPayment}
           onClose={() => setSelectedChargeForPayment(null)}
+        />
+      )}
+
+      {/* Concept Breakdown Detail & Administration Modal */}
+      {selectedConceptForDetail && (
+        <ConceptDetailModal
+          conceptName={selectedConceptForDetail.conceptName}
+          conceptType={selectedConceptForDetail.conceptType}
+          charges={charges}
+          players={players}
+          matches={matches}
+          team={team}
+          concepts={concepts}
+          onClose={() => setSelectedConceptForDetail(null)}
         />
       )}
     </div>

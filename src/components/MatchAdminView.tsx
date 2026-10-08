@@ -36,6 +36,7 @@ import {
   Edit2,
   Sparkles,
   FileText,
+  Search,
 } from 'lucide-react';
 
 interface MatchAdminViewProps {
@@ -69,6 +70,24 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
   const declinedList = match.callups.filter((c) => c.status === 'No asiste');
   const pendingList = match.callups.filter((c) => c.status === 'Pendiente');
   const totalCount = match.callups.length;
+
+  // Filter & Search states
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Confirmado' | 'No asiste' | 'Pendiente'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const confirmedPct = totalCount > 0 ? Math.round((confirmedList.length / totalCount) * 100) : 0;
+  const declinedPct = totalCount > 0 ? Math.round((declinedList.length / totalCount) * 100) : 0;
+  const pendingPct = totalCount > 0 ? Math.max(0, 100 - confirmedPct - declinedPct) : 0;
+
+  // Filtered callups
+  const displayedCallups = match.callups.filter((c) => {
+    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      return c.fullName.toLowerCase().includes(q) || String(c.jerseyNumber).includes(q);
+    }
+    return true;
+  });
 
   const confirmationLink = getConfirmationUrl(match.id);
   const fullWhatsAppText = team ? generateWhatsAppMessage(team, match) : '';
@@ -198,60 +217,51 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Botón Descargar Cartelera */}
-            <button
-              onClick={onOpenMatchdayGraphic}
-              className="flex items-center gap-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
-              title="Generar y descargar cartelera de matchday"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>🎨 Cartelera Matchday</span>
-            </button>
-
-            {/* Botón Prompt para IA */}
-            {onOpenAIPrompt && (
+            {/* Botón Unificado Cartelera & IA */}
+            {onOpenMatchdayGraphic && (
               <button
-                onClick={onOpenAIPrompt}
-                className="flex items-center gap-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 px-3 py-2 text-xs font-bold transition cursor-pointer"
-                title="Copiar prompt con datos y convocados para otra IA"
+                onClick={onOpenMatchdayGraphic}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                title="Generar cartelera oficial HD y prompts listos para IA"
               >
-                <FileText className="w-3.5 h-3.5 text-purple-700" />
-                <span>✨ Prompt IA</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+                <span>Cartelera & IA</span>
               </button>
             )}
 
-            {/* Botón Control Post-Partido */}
+            {/* Botón Arbitraje del Partido */}
             {onOpenPostMatch && (
               <button
                 onClick={onOpenPostMatch}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
-                title="Re-validar quiénes jugaron realmente y registrar pago de arbitraje"
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                title="Gestión de arbitraje y pagos de los jugadores para este partido"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                <span>📋 Control Post-Partido</span>
-              </button>
-            )}
-
-            {/* Botón Editar Partido (solo admin) */}
-            {isAdminMode && (
-              <button
-                onClick={onEditMatch}
-                className="flex items-center gap-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 px-3.5 py-2 text-xs font-bold transition cursor-pointer border border-gray-200"
-                title="Editar fecha, lugar, valor de arbitraje o lista de convocados"
-              >
-                <Edit2 className="w-3.5 h-3.5 text-gray-600" />
-                <span>Editar</span>
+                <DollarSign className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" />
+                <span>Arbitraje</span>
               </button>
             )}
 
             {/* Botón Cargar / Ver Estadísticas */}
             <button
               onClick={onOpenMatchStats}
-              className="flex items-center gap-1.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white px-3.5 py-2 text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-black text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+              title="Cargar o ver resultado final, goles, asistencias y tarjetas"
             >
-              <BarChart2 className="w-3.5 h-3.5" />
-              <span>Stats</span>
+              <BarChart2 className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+              <span>Marcador</span>
             </button>
+
+            {/* Botón Editar Partido (solo admin) */}
+            {isAdminMode && (
+              <button
+                onClick={onEditMatch}
+                className="flex items-center gap-1.5 rounded-xl bg-white hover:bg-emerald-50 text-gray-800 hover:text-emerald-900 px-3.5 py-2 text-xs font-bold transition-all cursor-pointer border border-gray-200 shadow-2xs active:scale-95"
+                title="Editar fecha, lugar, valor de arbitraje o lista de convocados"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-gray-500" />
+                <span>Editar</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -438,134 +448,328 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
         </div>
       </div>
 
-      {/* Real-time Attendance Counters */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-              Confirmados
-            </span>
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+      {/* Real-time Attendance Summary & Interactive Filter Actions */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gray-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm sm:text-base font-extrabold text-gray-900 flex items-center gap-2">
+              <span>📊 Resumen de Convocatoria</span>
+              <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                {totalCount} Jugadores
+              </span>
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Toca cualquiera de las tarjetas para filtrar la nómina y gestionar la asistencia
+            </p>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-gray-900">
-              {confirmedList.length}
-            </span>
-            <span className="text-xs text-gray-400 font-medium">de {totalCount}</span>
+
+          {statusFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-200 transition cursor-pointer self-start sm:self-auto flex items-center gap-1.5"
+            >
+              <span>✕ Quitar filtro (Ver todos {totalCount})</span>
+            </button>
+          )}
+        </div>
+
+        {/* Visual Proportional Progress Bar */}
+        <div className="space-y-1.5">
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden flex shadow-inner">
+            <div
+              style={{ width: `${confirmedPct}%` }}
+              className="bg-emerald-500 h-full transition-all duration-500"
+              title={`Confirmados: ${confirmedList.length} (${confirmedPct}%)`}
+            />
+            <div
+              style={{ width: `${declinedPct}%` }}
+              className="bg-red-500 h-full transition-all duration-500"
+              title={`No asisten: ${declinedList.length} (${declinedPct}%)`}
+            />
+            <div
+              style={{ width: `${pendingPct}%` }}
+              className="bg-amber-400 h-full transition-all duration-500"
+              title={`Pendientes: ${pendingList.length} (${pendingPct}%)`}
+            />
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-gray-400 px-0.5">
+            <span className="text-emerald-700 font-bold">{confirmedPct}% confirmados</span>
+            <span className="text-amber-700 font-bold">{pendingPct}% por responder</span>
+            <span className="text-red-700 font-bold">{declinedPct}% no asisten</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-red-200 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-red-700 uppercase tracking-wider">
-              No Asisten
-            </span>
-            <XCircle className="w-5 h-5 text-red-600" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-gray-900">
-              {declinedList.length}
-            </span>
-            <span className="text-xs text-gray-400 font-medium">de {totalCount}</span>
-          </div>
+        {/* 3 Interactive Summary & Action Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          {/* 1. Confirmados Card */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'Confirmado' ? 'all' : 'Confirmado')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group active:scale-[0.99] ${
+              statusFilter === 'Confirmado'
+                ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/30 shadow-sm'
+                : 'bg-white hover:bg-emerald-50/40 border-emerald-200/80 hover:border-emerald-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Confirmados</span>
+              </span>
+              <span className="text-[11px] font-black text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded-full">
+                {confirmedPct}%
+              </span>
+            </div>
+
+            <div className="mt-2.5 flex items-baseline justify-between">
+              <div>
+                <span className="text-3xl font-black text-emerald-950 font-mono">
+                  {confirmedList.length}
+                </span>
+                <span className="text-xs text-emerald-700 ml-1.5 font-semibold">
+                  de {totalCount}
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-emerald-800 bg-white/80 border border-emerald-200 px-2 py-0.5 rounded-lg shadow-2xs">
+                {statusFilter === 'Confirmado' ? '✓ Filtrando' : 'Filtrar →'}
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-700 font-medium mt-1">
+              ✓ Asistirán a la cancha
+            </p>
+          </button>
+
+          {/* 2. No Asisten Card */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'No asiste' ? 'all' : 'No asiste')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group active:scale-[0.99] ${
+              statusFilter === 'No asiste'
+                ? 'bg-red-50/90 border-red-500 ring-2 ring-red-500/30 shadow-sm'
+                : 'bg-white hover:bg-red-50/40 border-red-200/80 hover:border-red-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-red-800 uppercase tracking-wider flex items-center gap-1.5">
+                <XCircle className="w-4 h-4 text-red-600" />
+                <span>No Asisten</span>
+              </span>
+              <span className="text-[11px] font-black text-red-900 bg-red-100 px-2 py-0.5 rounded-full">
+                {declinedPct}%
+              </span>
+            </div>
+
+            <div className="mt-2.5 flex items-baseline justify-between">
+              <div>
+                <span className="text-3xl font-black text-red-950 font-mono">
+                  {declinedList.length}
+                </span>
+                <span className="text-xs text-red-700 ml-1.5 font-semibold">
+                  de {totalCount}
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-red-800 bg-white/80 border border-red-200 px-2 py-0.5 rounded-lg shadow-2xs">
+                {statusFilter === 'No asiste' ? '✓ Filtrando' : 'Filtrar →'}
+              </span>
+            </div>
+            <p className="text-[11px] text-red-700 font-medium mt-1">
+              ✕ Bajas confirmadas
+            </p>
+          </button>
+
+          {/* 3. Pendientes Card */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'Pendiente' ? 'all' : 'Pendiente')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group active:scale-[0.99] ${
+              statusFilter === 'Pendiente'
+                ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/30 shadow-sm'
+                : 'bg-white hover:bg-amber-50/40 border-amber-200/80 hover:border-amber-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-amber-600" />
+                <span>Pendientes</span>
+              </span>
+              <span className="text-[11px] font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                {pendingPct}%
+              </span>
+            </div>
+
+            <div className="mt-2.5 flex items-baseline justify-between">
+              <div>
+                <span className="text-3xl font-black text-amber-950 font-mono">
+                  {pendingList.length}
+                </span>
+                <span className="text-xs text-amber-700 ml-1.5 font-semibold">
+                  por responder
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-amber-800 bg-white/80 border border-amber-200 px-2 py-0.5 rounded-lg shadow-2xs">
+                {statusFilter === 'Pendiente' ? '✓ Filtrando' : 'Filtrar →'}
+              </span>
+            </div>
+            <p className="text-[11px] text-amber-700 font-medium mt-1">
+              ⏳ Sin confirmar asistencia
+            </p>
+          </button>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-amber-200 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
-              Pendientes
+        {/* Action helper bar when Pendientes is active or has items */}
+        {pendingList.length > 0 && statusFilter === 'Pendiente' && (
+          <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-fade-in text-xs">
+            <span className="text-amber-900 font-bold">
+              📢 Hay {pendingList.length} jugadores pendientes por responder su convocatoria:
             </span>
-            <HelpCircle className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleShareWhatsApp}
+                className="px-3 py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Enviar Recordatorio</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-2.5 py-1.5 rounded-xl bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-bold transition cursor-pointer flex items-center gap-1"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copiar Link</span>
+              </button>
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-gray-900">
-              {pendingList.length}
-            </span>
-            <span className="text-xs text-gray-400 font-medium">por confirmar</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Convocatoria Roster Table / List */}
-      <div className="bg-white rounded-2xl p-5 shadow-xs border border-gray-200 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-gray-900 text-sm sm:text-base">
-            Detalle de Convocados (Sincronizado en Tiempo Real)
-          </h3>
-          <span className="text-xs text-gray-400 font-medium">
-            {isAdminMode
-              ? 'Toca el botón de estado de un jugador para cambiarlo manualmente'
-              : 'Listado oficial de convocados y asistencia'}
-          </span>
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-gray-200 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+          <div>
+            <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2">
+              <span>Detalle de Convocados</span>
+              <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                {displayedCallups.length} de {totalCount}
+              </span>
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {isAdminMode
+                ? 'Toca el botón de estado de cualquier jugador para cambiarlo manualmente'
+                : 'Listado oficial sincronizado en tiempo real'}
+            </p>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nombre o #..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50/60 text-xs font-bold text-gray-900 focus:outline-emerald-600 focus:bg-white transition"
+            />
+          </div>
         </div>
 
-        <div className="divide-y divide-gray-100">
-          {match.callups.map((callup) => (
-            <div
-              key={callup.playerId}
-              className="py-3 sm:py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50/60 px-2 rounded-xl transition"
+        {displayedCallups.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-xs space-y-2">
+            <p className="font-bold text-gray-600">No se encontraron jugadores con los filtros seleccionados.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter('all');
+                setSearchQuery('');
+              }}
+              className="text-emerald-700 font-bold hover:underline cursor-pointer"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                {/* Circular Badge with Jersey Number */}
-                <div className="w-9 h-9 rounded-full bg-emerald-700 text-white font-black text-sm flex items-center justify-center flex-shrink-0 border-2 border-emerald-900 shadow-2xs">
-                  {callup.jerseyNumber}
-                </div>
+              Restablecer filtros y mostrar todos
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {displayedCallups.map((callup) => (
+              <div
+                key={callup.playerId}
+                className="py-3 sm:py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50/60 px-2 rounded-xl transition"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Circular Badge with Jersey Number */}
+                  <div className="w-9 h-9 rounded-full bg-emerald-700 text-white font-black text-sm flex items-center justify-center flex-shrink-0 border-2 border-emerald-900 shadow-2xs">
+                    {callup.jerseyNumber}
+                  </div>
 
-                <div className="min-w-0">
-                  <p className="font-bold text-gray-900 text-sm truncate">{callup.fullName}</p>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-gray-400" />
-                      {callup.phone}
-                    </span>
-                    {callup.reason && (
-                      <span className="text-red-600 italic truncate max-w-[200px]">
-                        • Motivo: "{callup.reason}"
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-bold text-gray-900 text-sm truncate">{callup.fullName}</p>
+                      {callup.isScholarship && (
+                        <span className="text-[10px] font-black bg-purple-100 text-purple-900 px-1.5 py-0.5 rounded border border-purple-200">
+                          🎓 Becado
+                        </span>
+                      )}
+                      {callup.attended && (
+                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                          ✓ Asistió
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-gray-400" />
+                        {callup.phone}
                       </span>
-                    )}
+                      {callup.reason && (
+                        <span className="text-red-600 italic truncate max-w-[200px]">
+                          • Motivo: "{callup.reason}"
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Status Badge & Manual Toggle (button only for admin, badge for players) */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {isAdminMode ? (
-                  <button
-                    onClick={() => handleTogglePlayerStatus(callup.playerId, callup.status)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
-                      callup.status === 'Confirmado'
-                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                        : callup.status === 'No asiste'
-                        ? 'bg-red-100 text-red-800 hover:bg-red-200'
-                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                    }`}
-                    title="Cambiar estado manualmente"
-                  >
-                    {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
-                    {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
-                    <span>{callup.status}</span>
-                  </button>
-                ) : (
-                  <div
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 select-none ${
-                      callup.status === 'Confirmado'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : callup.status === 'No asiste'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
-                    {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
-                    <span>{callup.status}</span>
-                  </div>
-                )}
+                {/* Status Badge & Manual Toggle (button only for admin, badge for players) */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {isAdminMode ? (
+                    <button
+                      onClick={() => handleTogglePlayerStatus(callup.playerId, callup.status)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                        callup.status === 'Confirmado'
+                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 shadow-2xs'
+                          : callup.status === 'No asiste'
+                          ? 'bg-red-100 text-red-800 hover:bg-red-200 shadow-2xs'
+                          : 'bg-amber-100 text-amber-800 hover:bg-amber-200 shadow-2xs'
+                      }`}
+                      title="Cambiar estado manualmente"
+                    >
+                      {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
+                      {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
+                      <span>{callup.status}</span>
+                    </button>
+                  ) : (
+                    <div
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 select-none ${
+                        callup.status === 'Confirmado'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : callup.status === 'No asiste'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {callup.status === 'Confirmado' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {callup.status === 'No asiste' && <XCircle className="w-3.5 h-3.5" />}
+                      {callup.status === 'Pendiente' && <HelpCircle className="w-3.5 h-3.5" />}
+                      <span>{callup.status}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

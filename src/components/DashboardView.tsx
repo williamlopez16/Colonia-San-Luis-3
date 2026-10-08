@@ -173,7 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* 0. Quick Multi-Team Switcher Bar (1-tap switching for anyone) */}
-      {teams && teams.length > 1 && (
+      {teams && teams.length >= 1 && (
         <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-gray-200 flex items-center justify-between gap-3 overflow-x-auto no-scrollbar animate-fade-in">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
             <span className="text-[11px] font-black uppercase tracking-wider text-gray-400 pl-1 flex-shrink-0">
@@ -372,24 +372,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Compact Attendance Counter */}
             {attendance && (
-              <div className="mt-4 bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-emerald-700" />
-                  <span className="text-xs font-bold text-emerald-950">Convocatoria:</span>
-                  <span className="text-xs font-semibold text-emerald-900">
-                    <strong className="text-emerald-700">{attendance.confirmed}</strong> confirmados ·{' '}
-                    <strong className="text-red-600">{attendance.declined}</strong> no van ·{' '}
-                    <strong className="text-amber-600">{attendance.pending}</strong> pendientes
-                  </span>
+              <div className="mt-4 bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-emerald-700" />
+                    <span className="text-xs font-bold text-gray-900">Estado de Convocatoria:</span>
+                    <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                      {attendance.total} Convocados
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => onViewMatchCallups(nextMatch.id)}
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <span>Ver lista completa</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => onViewMatchCallups(nextMatch.id)}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 hover:underline cursor-pointer"
-                >
-                  <span>Ver lista completa ({attendance.total})</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                {/* Proportional Segmented Progress Bar */}
+                <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden flex shadow-inner">
+                  <div
+                    style={{ width: `${attendance.total > 0 ? (attendance.confirmed / attendance.total) * 100 : 0}%` }}
+                    className="bg-emerald-500 h-full transition-all"
+                  />
+                  <div
+                    style={{ width: `${attendance.total > 0 ? (attendance.declined / attendance.total) * 100 : 0}%` }}
+                    className="bg-red-500 h-full transition-all"
+                  />
+                  <div
+                    style={{ width: `${attendance.total > 0 ? (attendance.pending / attendance.total) * 100 : 0}%` }}
+                    className="bg-amber-400 h-full transition-all"
+                  />
+                </div>
+
+                {/* 3 Status summary pills */}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-2 text-center">
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 block">Confirmados</span>
+                    <span className="text-lg font-black text-emerald-950 font-mono">{attendance.confirmed}</span>
+                  </div>
+                  <div className="bg-red-50/80 border border-red-200 rounded-xl p-2 text-center">
+                    <span className="text-[10px] uppercase font-bold text-red-700 block">No van</span>
+                    <span className="text-lg font-black text-red-950 font-mono">{attendance.declined}</span>
+                  </div>
+                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-2 text-center">
+                    <span className="text-[10px] uppercase font-bold text-amber-700 block">Pendientes</span>
+                    <span className="text-lg font-black text-amber-950 font-mono">{attendance.pending}</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -401,41 +433,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </h4>
                 {nextMatch.postMatchDone && (
                   <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    ✓ Post-partido validado
+                    ✓ Finanzas registradas
                   </span>
                 )}
               </div>
 
-              {/* Primary High-Visibility Row: Cartelera + Prompt IA + Control Post-partido */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* 1. Descargar Cartelera Matchday */}
+              {/* Primary High-Visibility Row: Cartelera & IA + Arbitraje */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Cartelera & IA Unificado */}
                 <button
                   onClick={() => onOpenMatchdayGraphic(nextMatch)}
-                  className="flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-900 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition cursor-pointer active:scale-98"
-                  title="Generar y descargar imagen oficial para estados de WhatsApp y redes"
+                  className="flex items-center justify-center gap-2.5 p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-98"
+                  title="Cartelera oficial HD para redes y generador de prompts para IA"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                  <span>🎨 Descargar Cartelera Matchday</span>
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse flex-shrink-0" />
+                  <span>Cartelera & IA</span>
                 </button>
 
-                {/* 2. Prompt para IA */}
-                <button
-                  onClick={() => onOpenAIPrompt?.(nextMatch)}
-                  className="flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-2xl bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 text-purple-950 font-black text-xs sm:text-sm transition cursor-pointer shadow-2xs active:scale-98"
-                  title="Copiar prompt con datos y convocados para ChatGPT, Midjourney o Gemini"
-                >
-                  <FileText className="w-4 h-4 text-purple-700" />
-                  <span>✨ Prompt para IA (Copiar)</span>
-                </button>
-
-                {/* 3. Control Post-Partido */}
+                {/* 2. Arbitraje del Partido */}
                 <button
                   onClick={() => onOpenPostMatch?.(nextMatch)}
-                  className="flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs sm:text-sm shadow-md hover:shadow-lg transition cursor-pointer active:scale-98"
-                  title="Re-validar quiénes jugaron realmente y registrar pago de arbitraje"
+                  className="flex items-center justify-center gap-2.5 p-3.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-98"
+                  title="Gestión de arbitraje, pagos y cuotas de este partido"
                 >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                  <span>📋 Control Post-Partido</span>
+                  <DollarSign className="w-4 h-4 text-emerald-300 flex-shrink-0" />
+                  <span>Arbitraje</span>
                 </button>
               </div>
 
@@ -444,31 +466,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {/* 1. Editar partido */}
                 <button
                   onClick={() => handleEditClick(nextMatch)}
-                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-800 font-bold text-xs transition cursor-pointer hover:border-gray-300 shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 font-bold text-xs transition-all cursor-pointer shadow-2xs active:scale-98"
                   title="Editar fecha, cancha, rival o convocados"
                 >
-                  <Edit2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <Edit2 className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                   <span>Editar</span>
                 </button>
 
                 {/* 2. Ver confirmaciones */}
                 <button
                   onClick={() => onViewMatchCallups(nextMatch.id)}
-                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs transition cursor-pointer shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs transition-all cursor-pointer shadow-2xs active:scale-98"
                   title="Ver y gestionar asistencia de jugadores"
                 >
-                  <Users className="w-3.5 h-3.5 text-emerald-700" />
+                  <Users className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
                   <span>Convocados</span>
                 </button>
 
                 {/* 3. Marcador / Estadísticas */}
                 <button
                   onClick={() => handleStatsClick(nextMatch.id, Boolean(nextMatch.matchState === 'Finalizado' || nextMatch.score?.isPlayed))}
-                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer shadow-xs hover:shadow-sm"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gray-900 hover:bg-black text-white font-bold text-xs transition-all cursor-pointer shadow-xs hover:shadow-sm active:scale-98"
                   title="Cargar resultado final, goles, asistencias y tarjetas"
                 >
-                  <BarChart2 className="w-3.5 h-3.5" />
-                  <span>Marcador/Stats</span>
+                  <BarChart2 className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                  <span>Marcador</span>
                 </button>
               </div>
             </div>

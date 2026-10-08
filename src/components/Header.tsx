@@ -218,90 +218,137 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation tabs */}
-        <nav className="flex space-x-1 sm:space-x-2 py-2 overflow-x-auto no-scrollbar text-xs sm:text-sm font-semibold">
+        {/* Dedicated Quick Team Switcher Bar - Prominently visible for instant 1-tap team switching */}
+        <div className="flex items-center gap-1.5 py-2 overflow-x-auto no-scrollbar border-b border-emerald-700/50 text-xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 flex-shrink-0 flex items-center gap-1 mr-1">
+            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Equipos:</span>
+          </span>
+
+          {teams.map((t) => {
+            const isActive = t.id === team?.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelectTeam?.(t.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition flex-shrink-0 cursor-pointer border ${
+                  isActive
+                    ? 'bg-white text-emerald-950 border-white shadow-xs font-black ring-2 ring-emerald-400/40'
+                    : 'bg-emerald-900/80 hover:bg-emerald-700 text-emerald-100 hover:text-white border-emerald-700'
+                }`}
+                title={`Toca para cambiar a ${t.name} (Modo Jugador: consulta libre)`}
+              >
+                <div className="w-4 h-4 rounded-full overflow-hidden flex-shrink-0 bg-white/20 flex items-center justify-center">
+                  <img
+                    src={(!t.logoUrl || t.logoUrl.endsWith('.jpg')) ? '/team_logo.png' : t.logoUrl}
+                    alt=""
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/team_logo.png';
+                    }}
+                  />
+                </div>
+                <span className="truncate max-w-[130px] sm:max-w-[200px]">{t.name}</span>
+                {isActive && <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={onOpenTeamModal}
+            className="text-[11px] font-bold text-emerald-200 hover:text-white bg-emerald-900/60 hover:bg-emerald-800 px-2.5 py-1.5 rounded-xl border border-dashed border-emerald-400/60 transition cursor-pointer flex-shrink-0 ml-auto flex items-center gap-1"
+            title="Administrar equipos y crear uno nuevo"
+          >
+            <span>+ Nuevo Equipo</span>
+          </button>
+        </div>
+
+        {/* Navigation tabs with emoticones (concise and shorter) */}
+        <nav className="flex space-x-1 sm:space-x-1.5 py-1.5 overflow-x-auto no-scrollbar text-xs font-bold">
           <button
             onClick={() => onTabChange('home')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
               activeTab === 'home'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
             }`}
           >
-            <Home className="w-4 h-4" />
+            <span>🏠</span>
             <span>Inicio</span>
           </button>
 
           <button
             onClick={() => onTabChange('matches')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
               activeTab === 'matches'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
             }`}
           >
-            <Calendar className="w-4 h-4" />
-            <span>Partidos y Convocatorias</span>
+            <span>⚽</span>
+            <span>Partidos</span>
           </button>
 
           <button
             onClick={() => onTabChange('players')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
               activeTab === 'players'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span>Jugadores</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('stats')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'stats'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Estadísticas</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('finance')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'finance'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            <span>Finanzas</span>
-          </button>
-
-          <button
-            onClick={() => onTabChange('concepts')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'concepts'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
-            }`}
-          >
-            <Tag className="w-4 h-4" />
-            <span>Conceptos</span>
+            <span>👥</span>
+            <span>Plantilla</span>
           </button>
 
           <button
             onClick={() => onTabChange('team')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
               activeTab === 'team'
-                ? 'bg-white text-emerald-900 shadow-sm'
-                : 'text-emerald-100 hover:bg-emerald-700/60 hover:text-white'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
             }`}
           >
-            <Shield className="w-4 h-4" />
-            <span>Equipo y Torneos</span>
+            <span>🏆</span>
+            <span>Torneos</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('finance')}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
+              activeTab === 'finance'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
+            }`}
+          >
+            <span>💰</span>
+            <span>Finanzas</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('stats')}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
+              activeTab === 'stats'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
+            }`}
+          >
+            <span>📊</span>
+            <span>Stats</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('concepts')}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
+              activeTab === 'concepts'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
+            }`}
+          >
+            <span>🏷️</span>
+            <span>Conceptos</span>
           </button>
         </nav>
       </div>

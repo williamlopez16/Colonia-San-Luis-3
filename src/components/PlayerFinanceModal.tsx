@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Check,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 
 interface PlayerFinanceModalProps {
@@ -319,6 +320,14 @@ export const PlayerFinanceModal: React.FC<PlayerFinanceModalProps> = ({
                           <span>el {new Date(ch.paidAt).toLocaleDateString('es-CO')}</span>
                         )}
                       </p>
+                    )}
+
+                    {/* Note / Becado Motivo */}
+                    {ch.notes && (
+                      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-purple-950 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200 w-fit">
+                        <MessageSquare className="w-3 h-3 text-purple-700 flex-shrink-0" />
+                        <span>Nota: <strong>{ch.notes}</strong></span>
+                      </div>
                     )}
                   </div>
 

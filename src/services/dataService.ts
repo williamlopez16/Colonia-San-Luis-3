@@ -126,7 +126,12 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 
 function notifySync(topic: string) {
   if (syncChannel) {
-    syncChannel.postMessage({ topic, timestamp: Date.now() });
+    try {
+      syncChannel.postMessage({ topic, timestamp: Date.now() });
+    } catch {}
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('cf_sync', { detail: { topic, timestamp: Date.now() } }));
   }
 }
 
@@ -416,9 +421,14 @@ export function subscribeToTeams(callback: (teams: Team[]) => void): Unsubscribe
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEYS.TEAMS || e.key === STORAGE_KEYS.TEAM) callback(getLocalTeams());
   };
+  const handleCfSync = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (detail?.topic === 'teams' || detail?.topic === 'team') callback(getLocalTeams());
+  };
 
   syncChannel?.addEventListener('message', handleMessage);
   window.addEventListener('storage', handleStorage);
+  window.addEventListener('cf_sync', handleCfSync);
 
   let firestoreUnsub: Unsubscribe | null = null;
   const targetDb = db;
@@ -468,6 +478,7 @@ export function subscribeToTeams(callback: (teams: Team[]) => void): Unsubscribe
     firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
+    window.removeEventListener('cf_sync', handleCfSync);
   };
 }
 
@@ -483,9 +494,14 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
       callback(getLocalTeam());
     }
   };
+  const handleCfSync = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (detail?.topic === 'team' || detail?.topic === 'teams') callback(getLocalTeam());
+  };
 
   syncChannel?.addEventListener('message', handleMessage);
   window.addEventListener('storage', handleStorage);
+  window.addEventListener('cf_sync', handleCfSync);
 
   let firestoreUnsub: Unsubscribe | null = null;
   const targetDb = db;
@@ -532,6 +548,7 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
     firestoreUnsub?.();
     syncChannel?.removeEventListener('message', handleMessage);
     window.removeEventListener('storage', handleStorage);
+    window.removeEventListener('cf_sync', handleCfSync);
   };
 }
 
@@ -587,6 +604,19 @@ export async function createTeam(newTeamData: Omit<Team, 'id' | 'createdAt' | 'u
 
   await saveTeam(newTeam);
   setActiveTeamId(newTeam.id);
+
+  // Initialize a default Arbitraje concept for this new team
+  const defaultConcept: Concept = {
+    id: generateUUID(),
+    teamId: newTeam.id,
+    name: 'Arbitraje',
+    suggestedValue: 12000,
+    isDefaultArbitration: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  await saveConcept(defaultConcept);
+
   return newTeam;
 }
 
@@ -615,6 +645,57 @@ export async function deleteTeam(teamId: string): Promise<void> {
     } catch (err) {
       console.warn('Error deleting team from Firestore:', err);
     }
+  }
+
+  // Also clean up team-specific data in localStorage and Firestore
+  try {
+    // 1. Tournaments
+    const rawTournaments = localStorage.getItem(STORAGE_KEYS.TOURNAMENTS);
+    if (rawTournaments) {
+      const list: Tournament[] = JSON.parse(rawTournaments);
+      const teamTournaments = list.filter((t) => t.teamId === teamId);
+      for (const t of teamTournaments) {
+        await deleteTournament(t.id);
+      }
+    }
+    // 2. Players
+    const rawPlayers = localStorage.getItem(STORAGE_KEYS.PLAYERS);
+    if (rawPlayers) {
+      const list: Player[] = JSON.parse(rawPlayers);
+      const teamPlayers = list.filter((p) => p.teamId === teamId);
+      for (const p of teamPlayers) {
+        await deletePlayer(p.id);
+      }
+    }
+    // 3. Matches
+    const rawMatches = localStorage.getItem(STORAGE_KEYS.MATCHES);
+    if (rawMatches) {
+      const list: Match[] = JSON.parse(rawMatches);
+      const teamMatches = list.filter((m) => m.teamId === teamId);
+      for (const m of teamMatches) {
+        await deleteMatch(m.id);
+      }
+    }
+    // 4. Charges
+    const rawCharges = localStorage.getItem(STORAGE_KEYS.CHARGES);
+    if (rawCharges) {
+      const list: Charge[] = JSON.parse(rawCharges);
+      const teamCharges = list.filter((c) => c.teamId === teamId);
+      for (const c of teamCharges) {
+        await deleteCharge(c.id);
+      }
+    }
+    // 5. Concepts
+    const rawConcepts = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
+    if (rawConcepts) {
+      const list: Concept[] = JSON.parse(rawConcepts);
+      const teamConcepts = list.filter((c) => c.teamId === teamId);
+      for (const c of teamConcepts) {
+        await deleteConcept(c.id);
+      }
+    }
+  } catch (err) {
+    console.warn('Error cleaning up data for deleted team:', err);
   }
 }
 
@@ -742,25 +823,33 @@ export async function deleteTournament(tournamentId: string): Promise<void> {
 // ==========================================
 
 export function subscribeToPlayers(
-  _teamId: string,
+  teamId: string,
   callback: (players: Player[]) => void
 ): Unsubscribe {
-  const localList = getLocalPlayers();
-  localList.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
-  callback(localList);
+  const filterByTeam = (list: Player[]) => {
+    if (!teamId) return list;
+    return list.filter((p) => {
+      if (p.teamId) return p.teamId === teamId;
+      return teamId === DEFAULT_TEAM_ID;
+    });
+  };
+
+  const deliver = (rawList: Player[]) => {
+    const filtered = filterByTeam(rawList);
+    filtered.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+    callback(filtered);
+  };
+
+  deliver(getLocalPlayers());
 
   const handleMessage = (e: MessageEvent) => {
     if (e.data?.topic === 'players') {
-      const updated = getLocalPlayers();
-      updated.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
-      callback(updated);
+      deliver(getLocalPlayers());
     }
   };
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEYS.PLAYERS) {
-      const updated = getLocalPlayers();
-      updated.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
-      callback(updated);
+      deliver(getLocalPlayers());
     }
   };
 
@@ -778,9 +867,8 @@ export function subscribeToPlayers(
         (snapshot) => {
           if (!snapshot.empty) {
             const remoteList = snapshot.docs.map((d) => d.data() as Player);
-            remoteList.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
             localStorage.setItem(STORAGE_KEYS.PLAYERS, JSON.stringify(remoteList));
-            callback(remoteList);
+            deliver(remoteList);
           } else {
             const currentLocal = getLocalPlayers();
             if (currentLocal.length > 0) {
@@ -788,13 +876,12 @@ export function subscribeToPlayers(
                 setDoc(doc(targetDb, 'players', p.id), cleanForFirestore(p)).catch(() => {});
               });
             }
+            deliver(currentLocal);
           }
         },
         (error) => {
           console.warn('Players snapshot warning:', error);
-          const current = getLocalPlayers();
-          current.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
-          callback(current);
+          deliver(getLocalPlayers());
         }
       );
     } catch (err) {
@@ -810,9 +897,11 @@ export function subscribeToPlayers(
 }
 
 export async function savePlayer(player: Player): Promise<void> {
+  const activeId = getActiveTeamId();
   const updated: Player = {
     ...player,
     id: player.id || generateUUID(),
+    teamId: player.teamId || activeId,
     updatedAt: new Date().toISOString(),
   };
 
@@ -867,17 +956,24 @@ export async function deletePlayer(playerId: string): Promise<void> {
 // ==========================================
 
 export function subscribeToConcepts(
-  _teamId: string,
+  teamId: string,
   callback: (concepts: Concept[]) => void
 ): Unsubscribe {
-  const localList = getLocalConcepts();
-  callback(localList);
+  const filterByTeam = (list: Concept[]) => {
+    if (!teamId) return list;
+    return list.filter((c) => {
+      if (c.teamId) return c.teamId === teamId;
+      return teamId === DEFAULT_TEAM_ID;
+    });
+  };
+
+  callback(filterByTeam(getLocalConcepts()));
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic === 'concepts') callback(getLocalConcepts());
+    if (e.data?.topic === 'concepts') callback(filterByTeam(getLocalConcepts()));
   };
   const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEYS.CONCEPTS) callback(getLocalConcepts());
+    if (e.key === STORAGE_KEYS.CONCEPTS) callback(filterByTeam(getLocalConcepts()));
   };
 
   syncChannel?.addEventListener('message', handleMessage);
@@ -895,7 +991,7 @@ export function subscribeToConcepts(
           if (!snapshot.empty) {
             const remoteList = snapshot.docs.map((d) => d.data() as Concept);
             localStorage.setItem(STORAGE_KEYS.CONCEPTS, JSON.stringify(remoteList));
-            callback(remoteList);
+            callback(filterByTeam(remoteList));
           } else {
             const currentLocal = getLocalConcepts();
             if (currentLocal.length > 0) {
@@ -903,11 +999,12 @@ export function subscribeToConcepts(
                 setDoc(doc(targetDb, 'concepts', c.id), cleanForFirestore(c)).catch(() => {});
               });
             }
+            callback(filterByTeam(currentLocal));
           }
         },
         (error) => {
           console.warn('Concepts snapshot warning:', error);
-          callback(getLocalConcepts());
+          callback(filterByTeam(getLocalConcepts()));
         }
       );
     } catch (err) {
@@ -923,9 +1020,11 @@ export function subscribeToConcepts(
 }
 
 export async function saveConcept(concept: Concept): Promise<void> {
+  const activeId = getActiveTeamId();
   const updated: Concept = {
     ...concept,
     id: concept.id || generateUUID(),
+    teamId: concept.teamId || activeId,
     updatedAt: new Date().toISOString(),
   };
 
@@ -975,28 +1074,34 @@ export async function deleteConcept(conceptId: string): Promise<void> {
 // ==========================================
 
 export function subscribeToMatches(
-  _teamId: string,
+  teamId: string,
   callback: (matches: Match[]) => void
 ): Unsubscribe {
+  const filterByTeam = (list: Match[]) => {
+    if (!teamId) return list;
+    return list.filter((m) => {
+      if (m.teamId) return m.teamId === teamId;
+      return teamId === DEFAULT_TEAM_ID;
+    });
+  };
+
+  const deliver = (rawList: Match[]) => {
+    const filtered = filterByTeam(rawList);
+    filtered.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
+    callback(filtered);
+  };
+
   // 1. Deliver local cached matches if any exist
-  const localList = getLocalMatches();
-  if (localList.length > 0) {
-    localList.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-    callback(localList);
-  }
+  deliver(getLocalMatches());
 
   const handleMessage = (e: MessageEvent) => {
     if (e.data?.topic === 'matches') {
-      const current = getLocalMatches();
-      current.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-      callback(current);
+      deliver(getLocalMatches());
     }
   };
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEYS.MATCHES) {
-      const current = getLocalMatches();
-      current.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-      callback(current);
+      deliver(getLocalMatches());
     }
   };
 
@@ -1017,7 +1122,7 @@ export function subscribeToMatches(
 
           // Save to local cache so next reload is instant
           localStorage.setItem(STORAGE_KEYS.MATCHES, JSON.stringify(remoteList));
-          callback(remoteList);
+          deliver(remoteList);
 
           // If cloud has zero matches, but local has unsynced matches, upload them to cloud
           if (snapshot.empty) {
@@ -1031,9 +1136,7 @@ export function subscribeToMatches(
         },
         (error) => {
           console.warn('Matches Cloud Firestore subscription warning:', error);
-          const current = getLocalMatches();
-          current.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')).getTime() - new Date(a.date + ' ' + (a.time || '00:00')).getTime());
-          callback(current);
+          deliver(getLocalMatches());
         }
       );
     } catch (err) {
@@ -1134,9 +1237,11 @@ export function subscribeToMatch(
 }
 
 export async function saveMatch(match: Match): Promise<void> {
+  const activeId = getActiveTeamId();
   const updated: Match = {
     ...match,
     id: match.id || generateUUID(),
+    teamId: match.teamId || activeId,
     updatedAt: new Date().toISOString(),
   };
 
@@ -1366,26 +1471,34 @@ export async function reopenMatchCallup(matchId: string): Promise<Match> {
 // ==========================================
 
 export function subscribeToCharges(
-  _teamId: string,
+  teamId: string,
   callback: (charges: Charge[]) => void
 ): Unsubscribe {
+  const filterByTeam = (list: Charge[]) => {
+    if (!teamId) return list;
+    return list.filter((c) => {
+      if (c.teamId) return c.teamId === teamId;
+      return teamId === DEFAULT_TEAM_ID;
+    });
+  };
+
+  const deliver = (rawList: Charge[]) => {
+    const filtered = filterByTeam(rawList);
+    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    callback(filtered);
+  };
+
   // 1. Initial cached data
-  const localList = getLocalCharges();
-  localList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  callback(localList);
+  deliver(getLocalCharges());
 
   const handleMessage = (e: MessageEvent) => {
     if (e.data?.topic === 'charges') {
-      const current = getLocalCharges();
-      current.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      callback(current);
+      deliver(getLocalCharges());
     }
   };
   const handleStorage = (e: StorageEvent) => {
     if (e.key === STORAGE_KEYS.CHARGES) {
-      const current = getLocalCharges();
-      current.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      callback(current);
+      deliver(getLocalCharges());
     }
   };
 
@@ -1402,10 +1515,8 @@ export function subscribeToCharges(
         collection(targetDb, 'charges'),
         (snapshot) => {
           const remoteList = snapshot.docs.map((d) => d.data() as Charge);
-          remoteList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
           localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(remoteList));
-          callback(remoteList);
+          deliver(remoteList);
 
           // If remote is empty but local has unsynced charges, upload them
           if (snapshot.empty) {
@@ -1419,9 +1530,7 @@ export function subscribeToCharges(
         },
         (error) => {
           console.warn('Charges Cloud Firestore subscription warning:', error);
-          const current = getLocalCharges();
-          current.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          callback(current);
+          deliver(getLocalCharges());
         }
       );
     } catch (err) {
@@ -1437,9 +1546,11 @@ export function subscribeToCharges(
 }
 
 export async function saveCharge(charge: Charge): Promise<void> {
+  const activeId = getActiveTeamId();
   const updated: Charge = {
     ...charge,
     id: charge.id || generateUUID(),
+    teamId: charge.teamId || activeId,
     updatedAt: new Date().toISOString(),
   };
 
@@ -1464,6 +1575,7 @@ export async function saveCharge(charge: Charge): Promise<void> {
 
 export async function saveChargesBatch(charges: Charge[]): Promise<void> {
   if (charges.length === 0) return;
+  const activeId = getActiveTeamId();
 
   const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
   let list: Charge[] = raw ? JSON.parse(raw) : [];
@@ -1472,6 +1584,7 @@ export async function saveChargesBatch(charges: Charge[]): Promise<void> {
   const prepared: Charge[] = charges.map((c) => ({
     ...c,
     id: c.id || generateUUID(),
+    teamId: c.teamId || activeId,
     createdAt: c.createdAt || now,
     updatedAt: now,
   }));
@@ -1499,7 +1612,8 @@ export async function saveChargesBatch(charges: Charge[]): Promise<void> {
 
 export async function markChargePaid(
   chargeId: string,
-  paymentMethod: PaymentMethod
+  paymentMethod: PaymentMethod,
+  notes?: string
 ): Promise<void> {
   const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
   let list: Charge[] = raw ? JSON.parse(raw) : [];
@@ -1513,6 +1627,7 @@ export async function markChargePaid(
     ...charge,
     status: 'Pagado',
     paymentMethod,
+    notes: notes !== undefined ? (notes.trim() || undefined) : charge.notes,
     paidAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
