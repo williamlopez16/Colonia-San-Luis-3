@@ -95,6 +95,9 @@ export function generateWhatsAppMessage(team: Team, match: Match): string {
   // Referee fee
   if (match.refereeFee && match.refereeFee.trim()) {
     lines.push(`💰 Arbitraje: ${match.refereeFee.trim()} por jugador`);
+    if (match.refereeCollectorName && match.refereeCollectorName.trim()) {
+      lines.push(`👤 Recauda el arbitraje: ${match.refereeCollectorName.trim()}`);
+    }
     lines.push('');
   }
 

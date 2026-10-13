@@ -10,6 +10,7 @@ import {
 import { saveTeam } from '../services/dataService';
 import { copyToClipboard, formatMatchDate } from '../services/whatsappService';
 import { generateAIPrompts } from '../services/aiPromptService';
+import { useAccessMode } from '../context/AccessModeContext';
 import {
   Download,
   X,
@@ -85,9 +86,17 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
   onClose,
   initialTab = 'designer',
 }) => {
+  const { isAdminMode } = useAccessMode();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const aiFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Close modal if user is not in administrator mode
+  useEffect(() => {
+    if (!isAdminMode) {
+      onClose();
+    }
+  }, [isAdminMode, onClose]);
 
   // Main Tab Navigation: 'designer' (Visual Canvas) | 'ai' (AI Prompt Generator)
   const [mainTab, setMainTab] = useState<'designer' | 'ai'>(initialTab);

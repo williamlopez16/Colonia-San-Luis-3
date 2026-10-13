@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Concept, Team } from '../types';
 import { saveConcept, deleteConcept, generateUUID } from '../services/dataService';
-import { DollarSign, Plus, Trash2, CheckCircle2, AlertCircle, Sparkles, X } from 'lucide-react';
+import { DollarSign, Plus, Trash2, Edit3, CheckCircle2, AlertCircle, Sparkles, X, Check } from 'lucide-react';
 
 interface ConceptsCatalogProps {
   team: Team | null;
@@ -13,6 +13,22 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
   const [name, setName] = useState<string>('');
   const [suggestedValue, setSuggestedValue] = useState<string>('');
   const [isDefaultArbitration, setIsDefaultArbitration] = useState<boolean>(false);
+
+  // Edit / Delete State
+  const [editingConcept, setEditingConcept] = useState<Concept | null>(null);
+  const [deletingConcept, setDeletingConcept] = useState<Concept | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+
+  // Toast feedback
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(msg);
+    setToastType(type);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -31,7 +47,7 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
 
     const val = parseFloat(arbitrationInput);
     if (isNaN(val) || val < 0) {
-      alert('Por favor ingresa un valor numérico válido para el arbitraje.');
+      showToast('Por favor ingresa un valor numérico válido para el arbitraje.', 'error');
       return;
     }
 
@@ -50,9 +66,10 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
 
       await saveConcept(conceptToSave);
       setArbitrationSuccess(true);
+      showToast('¡Arbitraje por defecto actualizado con éxito!');
       setTimeout(() => setArbitrationSuccess(false), 3000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al actualizar arbitraje');
+      showToast(err instanceof Error ? err.message : 'Error al actualizar arbitraje', 'error');
     } finally {
       setIsUpdatingArbitration(false);
     }
@@ -96,6 +113,7 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
       setSuggestedValue('');
       setIsDefaultArbitration(false);
       setShowAddForm(false);
+      showToast(`¡Concepto "${trimmedName}" registrado con éxito!`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error al guardar concepto.');
     } finally {
@@ -103,11 +121,56 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleSaveEditConcept = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingConcept) return;
+
+    const form = e.currentTarget as HTMLFormElement;
+    const nameInput = form.elements.namedItem('editName') as HTMLInputElement;
+    const valueInput = form.elements.namedItem('editValue') as HTMLInputElement;
+
+    const trimmedName = nameInput.value.trim();
+    const val = parseFloat(valueInput.value);
+
+    if (!trimmedName || trimmedName.length < 2) {
+      showToast('El nombre debe tener al menos 2 caracteres', 'error');
+      return;
+    }
+    if (isNaN(val) || val < 0) {
+      showToast('Ingresa un valor numérico válido', 'error');
+      return;
+    }
+
+    setIsSavingEdit(true);
     try {
-      await deleteConcept(id);
+      const updated: Concept = {
+        ...editingConcept,
+        name: trimmedName,
+        suggestedValue: val,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveConcept(updated);
+      setEditingConcept(null);
+      showToast(`¡Concepto "${trimmedName}" actualizado con éxito!`);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar');
+      showToast(err instanceof Error ? err.message : 'Error al actualizar concepto', 'error');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingConcept) return;
+    setIsDeleting(true);
+    try {
+      await deleteConcept(deletingConcept.id);
+      const deletedName = deletingConcept.name;
+      setDeletingConcept(null);
+      showToast(`¡Concepto "${deletedName}" eliminado del catálogo!`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al eliminar concepto', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -121,6 +184,32 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div
+          className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center justify-between gap-3 shadow-md animate-fade-in ${
+            toastType === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+              : 'bg-red-50 text-red-900 border-red-300'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toastType === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+            )}
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-gray-400 hover:text-gray-600 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Overview Card */}
       <div className="bg-white rounded-2xl p-5 shadow-xs border border-gray-200">
         <div className="flex items-center gap-2 mb-1">
@@ -321,20 +410,160 @@ export const ConceptsCatalog: React.FC<ConceptsCatalogProps> = ({ team, concepts
                   </p>
                 </div>
 
-                {!concept.isDefaultArbitration && (
+                <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleDelete(concept.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                    title="Eliminar concepto"
+                    type="button"
+                    onClick={() => setEditingConcept(concept)}
+                    className="p-1.5 text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
+                    title="Editar concepto"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Edit3 className="w-3.5 h-3.5" />
                   </button>
-                )}
+
+                  {!concept.isDefaultArbitration && (
+                    <button
+                      type="button"
+                      onClick={() => setDeletingConcept(concept)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                      title="Eliminar concepto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
+
+      {/* Edit Catalog Concept Modal */}
+      {editingConcept && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100 my-auto animate-scale-up">
+            <div className="bg-gradient-to-r from-emerald-800 to-emerald-950 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Edit3 className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-base text-white">Editar Concepto del Catálogo</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingConcept(null)}
+                className="text-white hover:text-gray-300 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditConcept} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Nombre del Concepto *</label>
+                <input
+                  type="text"
+                  name="editName"
+                  defaultValue={editingConcept.name}
+                  required
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 font-bold text-gray-900 focus:outline-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Valor Sugerido ($ COP) *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 font-bold text-gray-400">$</span>
+                  <input
+                    type="number"
+                    name="editValue"
+                    defaultValue={editingConcept.suggestedValue}
+                    min="0"
+                    step="500"
+                    required
+                    className="w-full pl-7 pr-3 py-2 rounded-xl border border-gray-300 font-mono font-bold text-gray-900 focus:outline-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingConcept(null)}
+                  disabled={isSavingEdit}
+                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSavingEdit ? (
+                    <span>Guardando...</span>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Guardar Cambios</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Catalog Concept Modal */}
+      {deletingConcept && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border border-red-100 my-auto animate-scale-up">
+            <div className="bg-red-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Trash2 className="w-5 h-5 text-red-200" />
+                <h3 className="font-bold text-base text-white">¿Eliminar Concepto?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeletingConcept(null)}
+                className="text-white hover:text-gray-300 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <p className="text-gray-700 leading-relaxed">
+                ¿Estás seguro de que deseas eliminar el concepto <b>"{deletingConcept.name}"</b> ({formatCurrency(deletingConcept.suggestedValue)}) de la lista de conceptos frecuentes?
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setDeletingConcept(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isDeleting ? (
+                    <span>Eliminando...</span>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Eliminar Concepto</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,6 +14,7 @@ import {
   CheckSquare,
   Square,
   Edit2,
+  UserCheck,
 } from 'lucide-react';
 
 interface MatchFormProps {
@@ -68,6 +69,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   );
   const [refereeFee, setRefereeFee] = useState<string>(
     matchToEdit?.refereeFee || defaultFeeString
+  );
+  const [refereeCollectorName, setRefereeCollectorName] = useState<string>(
+    matchToEdit?.refereeCollectorName || ''
   );
 
   // Players selection
@@ -199,6 +203,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
         time: time.trim(),
         location: location.trim(),
         refereeFee: refereeFee.trim(),
+        refereeCollectorName: refereeCollectorName.trim() || undefined,
         status: matchToEdit ? matchToEdit.status : 'Abierta',
         callups,
         createdAt: matchToEdit ? matchToEdit.createdAt : new Date().toISOString(),
@@ -402,6 +407,49 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Quien recogerá el arbitraje */}
+          <div className="mt-3.5 pt-3.5 border-t border-gray-200">
+            <label className="block text-xs font-semibold text-gray-800 mb-1">
+              ¿Quién recogerá el arbitraje ese día? (Opcional)
+            </label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+              <div className="relative w-full sm:w-72">
+                <UserCheck className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={refereeCollectorName}
+                  onChange={(e) => setRefereeCollectorName(e.target.value)}
+                  placeholder="Ej. Capitán Carlos, DT Mario..."
+                  className="w-full pl-9 pr-3 py-2 bg-white rounded-xl border border-gray-300 text-sm font-bold text-gray-900 focus:ring-2 focus:ring-purple-200 outline-hidden"
+                />
+              </div>
+
+              {/* Quick suggestion chips of active players */}
+              {activePlayers.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                  <span className="text-gray-500 text-[11px] font-medium">Sugerir:</span>
+                  {activePlayers.slice(0, 5).map((p) => {
+                    const isSelected = refereeCollectorName.trim().toLowerCase() === p.fullName.trim().toLowerCase();
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setRefereeCollectorName(isSelected ? '' : p.fullName)}
+                        className={`px-2 py-1 rounded-lg border text-[11px] font-medium transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
+                            : 'bg-white hover:bg-purple-50 border-gray-200 text-purple-900'
+                        }`}
+                      >
+                        {p.fullName} {p.isCaptain ? '⭐' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

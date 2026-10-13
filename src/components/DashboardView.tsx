@@ -24,6 +24,7 @@ import {
   Shield,
   Wallet,
   FileText,
+  UserCheck,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -368,6 +369,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   {nextMatch.location || 'Cancha Municipal'}
                 </span>
               </div>
+
+              {nextMatch.refereeCollectorName && (
+                <div className="flex items-center gap-2 bg-purple-50/90 p-2.5 rounded-xl border border-purple-200 text-purple-950 sm:col-span-2 md:col-span-3">
+                  <UserCheck className="w-4 h-4 text-purple-700 flex-shrink-0" />
+                  <span className="font-bold text-xs">
+                    Arbitraje recogido por: <strong className="text-purple-900 font-extrabold">{nextMatch.refereeCollectorName}</strong>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Compact Attendance Counter */}
@@ -438,17 +448,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 )}
               </div>
 
-              {/* Primary High-Visibility Row: Cartelera & IA + Arbitraje */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* 1. Cartelera & IA Unificado */}
-                <button
-                  onClick={() => onOpenMatchdayGraphic(nextMatch)}
-                  className="flex items-center justify-center gap-2.5 p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-98"
-                  title="Cartelera oficial HD para redes y generador de prompts para IA"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse flex-shrink-0" />
-                  <span>Cartelera & IA</span>
-                </button>
+              {/* Primary High-Visibility Row: Cartelera & IA (solo admin) + Arbitraje */}
+              <div className={`grid gap-3 ${isAdminMode ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* 1. Cartelera & IA Unificado (solo modo administrador) */}
+                {isAdminMode && (
+                  <button
+                    onClick={() => onOpenMatchdayGraphic(nextMatch)}
+                    className="flex items-center justify-center gap-2.5 p-3.5 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-98"
+                    title="Cartelera oficial HD para redes y generador de prompts para IA"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse flex-shrink-0" />
+                    <span>Cartelera & IA</span>
+                  </button>
+                )}
 
                 {/* 2. Arbitraje del Partido */}
                 <button

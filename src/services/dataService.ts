@@ -1688,6 +1688,159 @@ export async function deleteCharge(chargeId: string): Promise<void> {
   }
 }
 
+export async function deleteChargesBatch(chargeIds: string[]): Promise<void> {
+  if (!chargeIds || chargeIds.length === 0) return;
+  const idSet = new Set(chargeIds);
+
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  if (raw) {
+    const list: Charge[] = JSON.parse(raw);
+    const filtered = list.filter((c) => !idSet.has(c.id));
+    localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(filtered));
+    notifySync('charges');
+  }
+
+  const targetDb = db;
+  if (targetDb) {
+    for (const id of chargeIds) {
+      try {
+        await deleteDoc(doc(targetDb, 'charges', id));
+      } catch (err) {
+        console.warn('Error deleting charge document:', id, err);
+      }
+    }
+  }
+}
+
+export async function deleteConceptBreakdown(params: {
+  conceptName: string;
+  teamId?: string;
+  deleteFromCatalog?: boolean;
+}): Promise<{ deletedChargesCount: number }> {
+  const { conceptName, deleteFromCatalog } = params;
+  const trimmed = conceptName.trim().toLowerCase();
+
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  const list: Charge[] = raw ? JSON.parse(raw) : [];
+
+  const chargesToDelete = list.filter(
+    (c) => c.conceptName.trim().toLowerCase() === trimmed
+  );
+  const remainingCharges = list.filter(
+    (c) => c.conceptName.trim().toLowerCase() !== trimmed
+  );
+
+  localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(remainingCharges));
+  notifySync('charges');
+
+  const targetDb = db;
+  if (targetDb && chargesToDelete.length > 0) {
+    for (const c of chargesToDelete) {
+      try {
+        await deleteDoc(doc(targetDb, 'charges', c.id));
+      } catch (err) {
+        console.warn('Error deleting charge document in firestore:', c.id, err);
+      }
+    }
+  }
+
+  if (deleteFromCatalog) {
+    const rawConcepts = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
+    const conceptList: Concept[] = rawConcepts ? JSON.parse(rawConcepts) : [];
+    const matched = conceptList.find((c) => c.name.trim().toLowerCase() === trimmed);
+    if (matched && !matched.isDefaultArbitration) {
+      await deleteConcept(matched.id);
+    }
+  }
+
+  return { deletedChargesCount: chargesToDelete.length };
+}
+
+export async function updateConceptBreakdown(params: {
+  oldConceptName: string;
+  newConceptName: string;
+  teamId?: string;
+  newAmount?: number;
+  applyAmountTo?: 'none' | 'pending' | 'all';
+  updateCatalog?: boolean;
+}): Promise<{ updatedChargesCount: number }> {
+  const {
+    oldConceptName,
+    newConceptName,
+    newAmount,
+    applyAmountTo = 'pending',
+    updateCatalog = true,
+  } = params;
+
+  const trimmedNew = newConceptName.trim();
+  const trimmedOld = oldConceptName.trim().toLowerCase();
+  const now = new Date().toISOString();
+
+  const raw = localStorage.getItem(STORAGE_KEYS.CHARGES);
+  let list: Charge[] = raw ? JSON.parse(raw) : [];
+
+  const updatedCharges: Charge[] = [];
+
+  list = list.map((c) => {
+    if (c.conceptName.trim().toLowerCase() === trimmedOld) {
+      let updatedAmount = c.amount;
+      if (typeof newAmount === 'number' && !isNaN(newAmount) && newAmount >= 0) {
+        if (applyAmountTo === 'all') {
+          updatedAmount = newAmount;
+        } else if (applyAmountTo === 'pending' && c.status === 'Pendiente' && !c.isScholarship) {
+          updatedAmount = newAmount;
+        }
+      }
+
+      const updatedCharge: Charge = {
+        ...c,
+        conceptName: trimmedNew,
+        amount: updatedAmount,
+        updatedAt: now,
+      };
+      updatedCharges.push(updatedCharge);
+      return updatedCharge;
+    }
+    return c;
+  });
+
+  localStorage.setItem(STORAGE_KEYS.CHARGES, JSON.stringify(list));
+  notifySync('charges');
+
+  const targetDb = db;
+  if (targetDb && updatedCharges.length > 0) {
+    for (const item of updatedCharges) {
+      try {
+        const docRef = doc(targetDb, 'charges', item.id);
+        await setDoc(docRef, cleanForFirestore(item));
+      } catch (err) {
+        console.warn('Error saving updated charge:', item.id, err);
+      }
+    }
+  }
+
+  if (updateCatalog) {
+    const rawConcepts = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
+    const conceptList: Concept[] = rawConcepts ? JSON.parse(rawConcepts) : [];
+    const matched = conceptList.find((c) => c.name.trim().toLowerCase() === trimmedOld);
+
+    if (matched) {
+      const updatedConcept: Concept = {
+        ...matched,
+        name: trimmedNew,
+        suggestedValue:
+          typeof newAmount === 'number' && newAmount > 0
+            ? newAmount
+            : (matched.suggestedValue || 12000),
+        updatedAt: now,
+      };
+      await saveConcept(updatedConcept);
+    }
+  }
+
+  return { updatedChargesCount: updatedCharges.length };
+}
+
 /**
  * Automatically syncs referee fee charges for a match.
  * Generates/updates charges following strict financial rules:

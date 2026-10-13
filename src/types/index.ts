@@ -43,6 +43,7 @@ export interface Player {
   eps?: string; // EPS (optional)
   status: PlayerStatus;
   isScholarship?: boolean; // ¿Jugador becado / exento de cuotas?
+  isCaptain?: boolean; // ¿Capitán del equipo?
   createdAt: string;
   updatedAt: string;
 }
@@ -112,6 +113,7 @@ export interface Match {
   callups: Callup[];
   postMatchDone?: boolean; // Control postpartido completado (asistencia real y arbitraje validados)
   postMatchFeePerPlayer?: number; // Cuota por jugador definida para este partido
+  refereeCollectorName?: string; // Nombre de la persona que recogió el arbitraje ese día
   createdAt: string;
   updatedAt: string;
 }
@@ -141,6 +143,7 @@ export interface Charge {
   paymentMethod?: PaymentMethod;
   isScholarship?: boolean; // Indicador de cuota becada / exenta
   notes?: string; // Motivo de beca o notas de pago / mensaje explicativo
+  collectedBy?: string; // Nombre de quien recibió o recaudó este cobro
   paidAt?: string;
   createdAt: string;
   updatedAt: string;

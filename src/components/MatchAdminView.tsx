@@ -217,8 +217,8 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Botón Unificado Cartelera & IA */}
-            {onOpenMatchdayGraphic && (
+            {/* Botón Unificado Cartelera & IA (solo admin) */}
+            {isAdminMode && onOpenMatchdayGraphic && (
               <button
                 onClick={onOpenMatchdayGraphic}
                 className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"

@@ -6,6 +6,7 @@ import {
   deleteCharge,
   saveChargesBatch,
   saveConcept,
+  deleteConceptBreakdown,
   generateUUID,
 } from '../services/dataService';
 import { formatMatchDate } from '../services/whatsappService';
@@ -48,6 +49,8 @@ interface ConceptDetailModalProps {
   concepts: Concept[];
   onClose: () => void;
   onChargeUpdated?: () => void;
+  onConceptRenamed?: (newName: string) => void;
+  onConceptDeleted?: () => void;
 }
 
 const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
@@ -68,6 +71,8 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
   concepts,
   onClose,
   onChargeUpdated,
+  onConceptRenamed,
+  onConceptDeleted,
 }) => {
   const { isAdminMode } = useAccessMode();
 
@@ -122,6 +127,11 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
   const [showEditConceptName, setShowEditConceptName] = useState<boolean>(false);
   const [customConceptName, setCustomConceptName] = useState<string>(conceptName);
   const [customSuggestedValue, setCustomSuggestedValue] = useState<string>('');
+
+  // State: Delete Entire Concept Confirmation
+  const [showDeleteConceptConfirm, setShowDeleteConceptConfirm] = useState<boolean>(false);
+  const [deleteFromCatalogToo, setDeleteFromCatalogToo] = useState<boolean>(true);
+  const [isDeletingEntireConcept, setIsDeletingEntireConcept] = useState<boolean>(false);
 
   // Toast / feedback message
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
@@ -479,6 +489,7 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
           updatedAt: new Date().toISOString(),
         }));
         await saveChargesBatch(chargesToRename);
+        onConceptRenamed?.(trimmedName);
       }
 
       setShowEditConceptName(false);
@@ -489,7 +500,27 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
     }
   };
 
-  // 5. WhatsApp Summary Generator
+  // 5. Delete Entire Concept & All its Charges
+  const handleDeleteEntireConcept = async () => {
+    if (!isAdminMode) return;
+    setIsDeletingEntireConcept(true);
+    try {
+      await deleteConceptBreakdown({
+        conceptName,
+        teamId: team?.id,
+        deleteFromCatalog: deleteFromCatalogToo,
+      });
+      setShowDeleteConceptConfirm(false);
+      onConceptDeleted?.();
+      onClose();
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Error al eliminar el concepto');
+    } finally {
+      setIsDeletingEntireConcept(false);
+    }
+  };
+
+  // 6. WhatsApp Summary Generator
   const handleCopyWhatsAppSummary = () => {
     const teamTitle = team?.name || 'Club San Luis';
     const lines: string[] = [];
@@ -549,6 +580,9 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
       const m = matchMap.get(charge.matchId);
       if (m) {
         lines.push(`⚽ Partido vs. ${m.rival} (${formatMatchDate(m.date)})`);
+        if (charge.collectedBy || m.refereeCollectorName) {
+          lines.push(`👤 Arbitraje recogido por: ${charge.collectedBy || m.refereeCollectorName}`);
+        }
       }
     }
     lines.push('');
@@ -586,15 +620,33 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
                     {conceptType === 'arbitraje' ? 'Arbitraje Oficial' : 'Cobro Esporádico'}
                   </span>
                   {isAdminMode && (
-                    <button
-                      type="button"
-                      onClick={() => setShowEditConceptName(!showEditConceptName)}
-                      className="text-[11px] font-bold bg-white/15 hover:bg-white/25 text-white px-2 py-0.5 rounded-md transition flex items-center gap-1 cursor-pointer"
-                      title="Editar nombre y configuración de este concepto"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>Editar Concepto</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditConceptName(!showEditConceptName);
+                          setShowDeleteConceptConfirm(false);
+                        }}
+                        className="text-[11px] font-bold bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Editar nombre y configuración de este concepto"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Editar Concepto</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDeleteConceptConfirm(!showDeleteConceptConfirm);
+                          setShowEditConceptName(false);
+                        }}
+                        className="text-[11px] font-bold bg-red-500/80 hover:bg-red-600 text-white px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Eliminar este concepto y todos sus cobros asociados"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Eliminar Concepto</span>
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -680,6 +732,72 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
             >
               Cerrar
             </button>
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* CONFIRM DELETE ENTIRE CONCEPT DIALOG (ADMIN)         */}
+        {/* ==================================================== */}
+        {showDeleteConceptConfirm && isAdminMode && (
+          <div className="p-4 bg-red-50 border-b border-red-200 animate-fade-in flex-shrink-0 text-xs text-red-950 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <span className="font-extrabold text-sm text-red-900">
+                  ¿Eliminar todo el desglose del concepto "{conceptName}"?
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConceptConfirm(false)}
+                className="text-red-700 hover:text-red-900 text-xs font-bold cursor-pointer"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+
+            <p className="text-[11px] text-red-800 leading-relaxed">
+              Esta acción eliminará de forma permanente los <b>{conceptCharges.length} cobros</b> registrados bajo este concepto ({formatCurrency(metrics.total)} en total). Las estadísticas de recaudación y las deudas individuales de los jugadores se recalcularán automáticamente.
+            </p>
+
+            <label className="flex items-center gap-2 cursor-pointer bg-white/80 p-2 rounded-xl border border-red-200 w-fit">
+              <input
+                type="checkbox"
+                checked={deleteFromCatalogToo}
+                onChange={(e) => setDeleteFromCatalogToo(e.target.checked)}
+                className="rounded text-red-600 focus:ring-red-500"
+              />
+              <span className="text-[11px] font-medium text-gray-700">
+                Eliminar también este concepto del catálogo de conceptos frecuentes
+              </span>
+            </label>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isDeletingEntireConcept}
+                onClick={handleDeleteEntireConcept}
+                className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isDeletingEntireConcept ? (
+                  <span>Eliminando cobros...</span>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Confirmar y Eliminar Todo el Concepto</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeletingEntireConcept}
+                onClick={() => setShowDeleteConceptConfirm(false)}
+                className="px-3 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         )}
 
@@ -1124,6 +1242,12 @@ export const ConceptDetailModal: React.FC<ConceptDetailModalProps> = ({
                           {charge.paidAt && (
                             <span className="text-gray-400">
                               • Pagado el {formatMatchDate(charge.paidAt.slice(0, 10))}
+                            </span>
+                          )}
+
+                          {(charge.collectedBy || match?.refereeCollectorName) && (
+                            <span className="text-[10px] font-bold text-purple-900 bg-purple-50 px-1.5 py-0.5 rounded-md border border-purple-200">
+                              👤 Recogió: {charge.collectedBy || match?.refereeCollectorName}
                             </span>
                           )}
                         </div>

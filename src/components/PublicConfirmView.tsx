@@ -18,6 +18,7 @@ import {
   Check,
   RotateCcw,
   Sparkles,
+  UserCheck,
 } from 'lucide-react';
 
 interface PublicConfirmViewProps {
@@ -263,6 +264,16 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
                 Arbitraje por jugador:
               </span>
               <span className="font-extrabold text-sm text-emerald-700">{match.refereeFee}</span>
+            </div>
+          )}
+
+          {match.refereeCollectorName && (
+            <div className="px-5 py-2 bg-purple-50/90 border-b border-purple-100 flex items-center justify-between text-xs text-purple-950 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-purple-600" />
+                Recoge el arbitraje:
+              </span>
+              <span className="font-extrabold text-xs text-purple-900">{match.refereeCollectorName}</span>
             </div>
           )}
 

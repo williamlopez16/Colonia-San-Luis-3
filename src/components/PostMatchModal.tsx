@@ -22,6 +22,8 @@ import {
   GraduationCap,
   MessageSquare,
   MessageSquareText,
+  UserCheck,
+  User,
 } from 'lucide-react';
 
 interface PostMatchModalProps {
@@ -76,6 +78,32 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
   }, [match.postMatchFeePerPlayer, match.callups, defaultTotalFee]);
 
   const [feePerPlayer, setFeePerPlayer] = useState<number>(initialPerPlayer);
+
+  // Nombre de quien recogió ese día el arbitraje
+  const [refereeCollectorName, setRefereeCollectorName] = useState<string>(
+    match.refereeCollectorName || ''
+  );
+
+  // Sugerencias rápidas para quien recogió el arbitraje
+  const suggestedCollectors = useMemo(() => {
+    const list: string[] = [];
+    // Capitán del equipo si existe
+    const captains = players.filter((p) => p.isCaptain);
+    captains.forEach((c) => {
+      list.push(`${c.fullName} (Capitán)`);
+    });
+    // Jugadores que asistieron a este partido
+    match.callups.forEach((c) => {
+      if (!list.some((item) => item.startsWith(c.fullName))) {
+        list.push(c.fullName);
+      }
+    });
+    // Roles comunes
+    if (!list.some((item) => item.includes('DT') || item.includes('Director'))) {
+      list.push('Director Técnico (DT)');
+    }
+    return list.slice(0, 8);
+  }, [players, match.callups]);
 
   // Initialize player post-match state
   const [playersState, setPlayersState] = useState<PlayerPostMatchState[]>(() => {
@@ -325,6 +353,7 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
         callups: updatedCallups,
         postMatchDone: true,
         postMatchFeePerPlayer: feePerPlayer,
+        refereeCollectorName: refereeCollectorName.trim() || undefined,
         updatedAt: new Date().toISOString(),
       };
 
@@ -355,6 +384,7 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
             paymentMethod: isBec ? 'Otro' : (p.arbitrationPaid ? p.paymentMethod : undefined),
             isScholarship: isBec,
             notes: p.notes?.trim() || undefined,
+            collectedBy: refereeCollectorName.trim() || undefined,
             paidAt: (isBec || p.arbitrationPaid) ? (existing?.paidAt || now) : undefined,
             createdAt: existing ? existing.createdAt : now,
             updatedAt: now,
@@ -522,6 +552,82 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
               </div>
             </div>
 
+            {/* SECCIÓN: ¿QUIÉN RECOGIÓ EL ARBITRAJE ESE DÍA? */}
+            <div className="bg-purple-50/70 p-3 sm:p-3.5 rounded-2xl border border-purple-200/80 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-2 rounded-xl bg-purple-600 text-white flex-shrink-0 shadow-xs">
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="text-xs font-black uppercase text-purple-950 block tracking-tight">
+                      ¿Quién recogió ese día el arbitraje?
+                    </label>
+                    <p className="text-[11px] text-purple-700 font-medium">
+                      Registra el responsable del recaudo para control de caja del equipo
+                    </p>
+                  </div>
+                </div>
+
+                {refereeCollectorName && (
+                  <span className="self-start sm:self-auto text-[11px] font-bold text-purple-900 bg-white px-2.5 py-1 rounded-xl border border-purple-200 shadow-2xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Recaudador: <strong>{refereeCollectorName}</strong></span>
+                  </span>
+                )}
+              </div>
+
+              {/* Input + Suggestions */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={refereeCollectorName}
+                    onChange={(e) => setRefereeCollectorName(e.target.value)}
+                    placeholder="Escribe el nombre de quien recogió el dinero (ej. Capitán Andrés, DT Profe, etc.)..."
+                    className="w-full text-xs font-bold text-gray-900 bg-white pl-3 pr-8 py-2 rounded-xl border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder:text-gray-400 placeholder:font-normal shadow-2xs"
+                  />
+                  {refereeCollectorName && (
+                    <button
+                      type="button"
+                      onClick={() => setRefereeCollectorName('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                      title="Borrar nombre"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick suggestion chips */}
+                {suggestedCollectors.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold text-purple-800 uppercase flex-shrink-0">
+                      Sugerir:
+                    </span>
+                    {suggestedCollectors.map((sug) => {
+                      const isSelected = refereeCollectorName.trim().toLowerCase() === sug.trim().toLowerCase();
+                      return (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => setRefereeCollectorName(isSelected ? '' : sug)}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
+                              : 'bg-white hover:bg-purple-100 text-purple-900 border-purple-200 shadow-2xs'
+                          }`}
+                          title={`Asignar a ${sug}`}
+                        >
+                          {isSelected ? `✓ ${sug}` : sug}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Financial Summary Metric Badges */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center">
               <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
@@ -560,6 +666,14 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
                 <span className="text-[10px] font-bold text-emerald-700 block mt-0.5">
                   {totalPaidCount} pagaron
                 </span>
+                {refereeCollectorName && (
+                  <span
+                    className="text-[10px] font-bold text-purple-900 bg-purple-100/90 px-1.5 py-0.5 rounded-md block mt-1 truncate max-w-full border border-purple-200"
+                    title={`Arbitraje recogido por: ${refereeCollectorName}`}
+                  >
+                    👤 {refereeCollectorName}
+                  </span>
+                )}
               </div>
 
               <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-100">
@@ -625,13 +739,19 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
               const isAbsentAfterConfirm = player.originalStatus === 'Confirmado' && !player.attended;
               const isScholarship = player.isScholarship;
               const diffFromBase = player.arbitrationAmount - feePerPlayer;
+              const isCollector = !!refereeCollectorName && (
+                refereeCollectorName.trim().toLowerCase() === player.fullName.trim().toLowerCase() ||
+                refereeCollectorName.trim().toLowerCase().startsWith(player.fullName.trim().toLowerCase())
+              );
 
               return (
                 <div
                   key={player.playerId}
                   className={`p-3 sm:p-3.5 rounded-2xl border transition-all ${
                     player.attended
-                      ? isScholarship
+                      ? isCollector
+                        ? 'bg-purple-50/60 border-purple-300 shadow-sm ring-1 ring-purple-200'
+                        : isScholarship
                         ? 'bg-purple-50/50 border-purple-200 shadow-2xs'
                         : player.arbitrationPaid
                         ? 'bg-white border-emerald-200 shadow-2xs'
@@ -648,10 +768,16 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
                         {player.jerseyNumber}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-extrabold text-sm text-gray-900 truncate">
                             {player.fullName}
                           </h4>
+                          {isCollector && (
+                            <span className="text-[10px] font-black bg-purple-700 text-white px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
+                              <UserCheck className="w-3 h-3 text-purple-200" />
+                              <span>Recogió Arbitraje</span>
+                            </span>
+                          )}
                           {isAbsentAfterConfirm && (
                             <span className="text-[10px] font-black bg-red-100 text-red-800 px-2 py-0.5 rounded-md">
                               Faltó
@@ -663,12 +789,29 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-gray-500">
-                          Previa convocatoria:{' '}
-                          <span className={player.originalStatus === 'Confirmado' ? 'text-emerald-700 font-bold' : 'text-gray-500'}>
-                            {player.originalStatus}
-                          </span>
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          <p className="text-[11px] text-gray-500">
+                            Previa convocatoria:{' '}
+                            <span className={player.originalStatus === 'Confirmado' ? 'text-emerald-700 font-bold' : 'text-gray-500'}>
+                              {player.originalStatus}
+                            </span>
+                          </p>
+                          {player.attended && (
+                            <button
+                              type="button"
+                              onClick={() => setRefereeCollectorName(isCollector ? '' : player.fullName)}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 border ${
+                                isCollector
+                                  ? 'bg-purple-100 text-purple-900 border-purple-300'
+                                  : 'bg-white hover:bg-purple-50 text-gray-500 hover:text-purple-800 border-gray-200'
+                              }`}
+                              title={isCollector ? 'Quitar como recaudador' : `Marcar a ${player.fullName} como quien recogió el arbitraje`}
+                            >
+                              <UserCheck className="w-2.5 h-2.5 text-purple-600" />
+                              <span>{isCollector ? 'Quitar rol' : '¿Recogió él?'}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 

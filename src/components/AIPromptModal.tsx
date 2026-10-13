@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { Team, Match, Callup } from '../types';
 import { generateAIPrompts } from '../services/aiPromptService';
 import { copyToClipboard } from '../services/whatsappService';
+import { useAccessMode } from '../context/AccessModeContext';
 import {
   Sparkles,
   Copy,
@@ -29,8 +30,15 @@ export const AIPromptModal: React.FC<AIPromptModalProps> = ({
   match,
   onClose,
 }) => {
+  const { isAdminMode } = useAccessMode();
   const [activeTab, setActiveTab] = useState<'poster' | 'midjourney' | 'background'>('poster');
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!isAdminMode) {
+      onClose();
+    }
+  }, [isAdminMode, onClose]);
 
   const confirmedPlayers = useMemo(
     () => match.callups.filter((c) => c.status === 'Confirmado'),
