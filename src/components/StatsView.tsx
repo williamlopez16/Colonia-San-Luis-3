@@ -363,7 +363,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   <tr className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold border-b border-gray-200">
                     <th className="py-3 px-4 w-12 text-center">Pos.</th>
                     <th className="py-3 px-4">Jugador</th>
-                    <th className="py-3 px-4 text-center">Dorsal</th>
                     <th className="py-3 px-4 text-center">Partidos</th>
                     <th className="py-3 px-4 text-center font-extrabold text-emerald-800">Goles ⚽</th>
                     <th className="py-3 px-4 text-center">Promedio</th>
@@ -381,11 +380,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="font-bold text-gray-900 block text-sm">{player.name}</span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="inline-block bg-emerald-800 text-white font-black text-[11px] px-2 py-0.5 rounded-md">
-                            {player.jerseyNumber}
-                          </span>
                         </td>
                         <td className="py-3.5 px-4 text-center text-gray-600 font-mono">
                           {player.matchesCount}
@@ -433,7 +427,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
                   <tr className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold border-b border-gray-200">
                     <th className="py-3 px-4 w-12 text-center">Pos.</th>
                     <th className="py-3 px-4">Jugador</th>
-                    <th className="py-3 px-4 text-center">Dorsal</th>
                     <th className="py-3 px-4 text-center font-extrabold text-blue-800">Asistencias 👟</th>
                   </tr>
                 </thead>
@@ -445,11 +438,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="font-bold text-gray-900 block text-sm">{player.name}</span>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className="inline-block bg-emerald-800 text-white font-black text-[11px] px-2 py-0.5 rounded-md">
-                          {player.jerseyNumber}
-                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span className="inline-block bg-blue-100 text-blue-900 font-black text-sm px-2.5 py-1 rounded-xl">
@@ -489,7 +477,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
                 <thead>
                   <tr className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold border-b border-gray-200">
                     <th className="py-3 px-4">Jugador</th>
-                    <th className="py-3 px-4 text-center">Dorsal</th>
                     <th className="py-3 px-4 text-center text-amber-700 font-bold">Amarillas 🟨</th>
                     <th className="py-3 px-4 text-center text-red-700 font-bold">Rojas 🟥</th>
                   </tr>
@@ -499,11 +486,6 @@ export const StatsView: React.FC<StatsViewProps> = ({
                     <tr key={player.playerId} className="hover:bg-gray-50/50 transition">
                       <td className="py-3.5 px-4 font-bold text-gray-900 text-sm">
                         {player.name}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className="inline-block bg-emerald-800 text-white font-black text-[11px] px-2 py-0.5 rounded-md">
-                          {player.jerseyNumber}
-                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         {player.yellowCards > 0 ? (

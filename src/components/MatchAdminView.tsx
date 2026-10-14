@@ -37,6 +37,7 @@ import {
   Sparkles,
   FileText,
   Search,
+  UserCheck,
 } from 'lucide-react';
 
 interface MatchAdminViewProps {
@@ -366,6 +367,12 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
               <span className="flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50/80 px-2.5 py-1 rounded-lg border border-emerald-200">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                 Arbitraje: {match.refereeFee}
+              </span>
+            )}
+            {match.refereeCollectorName && (
+              <span className="flex items-center gap-1 font-bold text-purple-900 bg-purple-50/90 px-2.5 py-1 rounded-lg border border-purple-200">
+                <UserCheck className="w-3.5 h-3.5 text-purple-600" />
+                Recogió: {match.refereeCollectorName}
               </span>
             )}
           </div>

@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import type { Team, Tournament, Player, Concept, Match, Charge } from './types';
+import type { Team, Tournament, Player, Concept, Venue, Match, Charge } from './types';
 import {
   subscribeToTeam,
   subscribeToTeams,
@@ -14,6 +14,7 @@ import {
   subscribeToTournaments,
   subscribeToPlayers,
   subscribeToConcepts,
+  subscribeToVenues,
   subscribeToMatches,
   subscribeToCharges,
   deleteMatch,
@@ -52,6 +53,7 @@ export default function App() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [charges, setCharges] = useState<Charge[]>([]);
 
@@ -141,6 +143,10 @@ export default function App() {
       setConcepts(cList);
     });
 
+    const unsubVenues = subscribeToVenues(currentTeamId, (vList) => {
+      setVenues(vList);
+    });
+
     const unsubMatches = subscribeToMatches(currentTeamId, (mList) => {
       setMatches(mList);
     });
@@ -153,6 +159,7 @@ export default function App() {
       unsubTournaments();
       unsubPlayers();
       unsubConcepts();
+      unsubVenues();
       unsubMatches();
       unsubCharges();
     };
@@ -329,6 +336,7 @@ export default function App() {
                 tournaments={tournaments}
                 players={players}
                 concepts={concepts}
+                venues={venues}
                 matchToEdit={editingMatch}
                 onMatchCreated={handleMatchCreated}
                 onCancel={() => {

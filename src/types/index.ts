@@ -58,6 +58,16 @@ export interface Concept {
   updatedAt: string;
 }
 
+export interface Venue {
+  id: string;
+  teamId: string;
+  name: string; // Nombre de la cancha o escenario deportivo
+  address?: string; // Dirección o detalles de ubicación
+  isDefault?: boolean; // Cancha habitual del equipo
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Callup {
   playerId: string;
   fullName: string;

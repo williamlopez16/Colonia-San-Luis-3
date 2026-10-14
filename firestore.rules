@@ -22,6 +22,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Venues / Canchas predeterminadas
+    match /venues/{venueId} {
+      allow read, write: if true;
+    }
+
     // Matches and callups collection
     match /matches/{matchId} {
       allow read, write: if true;

@@ -22,6 +22,7 @@ import type {
   Tournament,
   Player,
   Concept,
+  Venue,
   Match,
   AttendanceStatus,
   MatchScore,
@@ -79,6 +80,7 @@ const STORAGE_KEYS = {
   TOURNAMENTS: 'cf_tournaments_data',
   PLAYERS: 'cf_players_data',
   CONCEPTS: 'cf_concepts_data',
+  VENUES: 'cf_venues_data',
   MATCHES: 'cf_matches_data',
   CHARGES: 'cf_charges_data',
 };
@@ -195,6 +197,45 @@ const INITIAL_CONCEPTS: Concept[] = [
     name: 'Uniforme Oficial Verde y Blanco',
     suggestedValue: 65000,
     isDefaultArbitration: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const INITIAL_VENUES: Venue[] = [
+  {
+    id: 'venue-san-luis-01',
+    teamId: DEFAULT_TEAM_ID,
+    name: 'Cancha Sintética Municipal San Luis',
+    address: 'Polideportivo San Luis, Sector Central',
+    isDefault: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'venue-san-luis-02',
+    teamId: DEFAULT_TEAM_ID,
+    name: 'Polideportivo Central San Luis',
+    address: 'Calle 10, San Luis',
+    isDefault: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'venue-san-luis-03',
+    teamId: DEFAULT_TEAM_ID,
+    name: 'Estadio Municipal de San Luis',
+    address: 'Complejo Deportivo Municipal',
+    isDefault: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'venue-san-luis-04',
+    teamId: DEFAULT_TEAM_ID,
+    name: 'Cancha La Milagrosa',
+    address: 'Barrio La Milagrosa',
+    isDefault: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -387,6 +428,12 @@ function getLocalConcepts(): Concept[] {
   if (typeof window === 'undefined') return INITIAL_CONCEPTS;
   const raw = localStorage.getItem(STORAGE_KEYS.CONCEPTS);
   return raw ? JSON.parse(raw) : INITIAL_CONCEPTS;
+}
+
+export function getLocalVenues(): Venue[] {
+  if (typeof window === 'undefined') return INITIAL_VENUES;
+  const raw = localStorage.getItem(STORAGE_KEYS.VENUES);
+  return raw ? JSON.parse(raw) : INITIAL_VENUES;
 }
 
 function getLocalMatches(): Match[] {
@@ -1066,6 +1113,129 @@ export async function deleteConcept(conceptId: string): Promise<void> {
   const targetDb = db;
   if (targetDb) {
     await deleteDoc(doc(targetDb, 'concepts', conceptId));
+  }
+}
+
+// ==========================================
+// 4B. VENUES (CANCHAS PREDETERMINADAS)
+// ==========================================
+
+export function subscribeToVenues(
+  teamId: string,
+  callback: (venues: Venue[]) => void
+): Unsubscribe {
+  const filterByTeam = (list: Venue[]) => {
+    if (!teamId) return list;
+    return list.filter((v) => {
+      if (v.teamId) return v.teamId === teamId;
+      return teamId === DEFAULT_TEAM_ID;
+    });
+  };
+
+  callback(filterByTeam(getLocalVenues()));
+
+  const handleMessage = (e: MessageEvent) => {
+    if (e.data?.topic === 'venues') callback(filterByTeam(getLocalVenues()));
+  };
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEYS.VENUES) callback(filterByTeam(getLocalVenues()));
+  };
+
+  syncChannel?.addEventListener('message', handleMessage);
+  window.addEventListener('storage', handleStorage);
+
+  let firestoreUnsub: Unsubscribe | null = null;
+  const targetDb = db;
+
+  if (targetDb) {
+    try {
+      const q = query(collection(targetDb, 'venues'));
+      firestoreUnsub = onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const remoteList = snapshot.docs.map((d) => d.data() as Venue);
+            localStorage.setItem(STORAGE_KEYS.VENUES, JSON.stringify(remoteList));
+            callback(filterByTeam(remoteList));
+          } else {
+            const currentLocal = getLocalVenues();
+            if (currentLocal.length > 0) {
+              currentLocal.forEach((v) => {
+                setDoc(doc(targetDb, 'venues', v.id), cleanForFirestore(v)).catch(() => {});
+              });
+            }
+            callback(filterByTeam(currentLocal));
+          }
+        },
+        (error) => {
+          console.warn('Venues snapshot warning:', error);
+          callback(filterByTeam(getLocalVenues()));
+        }
+      );
+    } catch (err) {
+      console.warn('Venues listen error:', err);
+    }
+  }
+
+  return () => {
+    firestoreUnsub?.();
+    syncChannel?.removeEventListener('message', handleMessage);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+export async function saveVenue(venue: Partial<Venue> & { name: string }): Promise<Venue> {
+  const activeId = getActiveTeamId();
+  const updated: Venue = {
+    id: venue.id || generateUUID(),
+    teamId: venue.teamId || activeId,
+    name: venue.name.trim(),
+    address: venue.address?.trim() || undefined,
+    isDefault: venue.isDefault || false,
+    createdAt: venue.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const raw = localStorage.getItem(STORAGE_KEYS.VENUES);
+  let list: Venue[] = raw ? JSON.parse(raw) : INITIAL_VENUES;
+
+  if (updated.isDefault) {
+    list = list.map((v) => ({
+      ...v,
+      isDefault: v.id === updated.id,
+    }));
+  }
+
+  const index = list.findIndex((v) => v.id === updated.id);
+  if (index >= 0) {
+    list[index] = updated;
+  } else {
+    list.push(updated);
+  }
+  localStorage.setItem(STORAGE_KEYS.VENUES, JSON.stringify(list));
+  notifySync('venues');
+
+  const targetDb = db;
+  if (targetDb) {
+    const docRef = doc(targetDb, 'venues', updated.id);
+    await setDoc(docRef, cleanForFirestore(updated));
+  }
+
+  return updated;
+}
+
+export async function deleteVenue(venueId: string): Promise<void> {
+  const raw = localStorage.getItem(STORAGE_KEYS.VENUES);
+  if (raw) {
+    const list: Venue[] = JSON.parse(raw);
+    const filtered = list.filter((v) => v.id !== venueId);
+    localStorage.setItem(STORAGE_KEYS.VENUES, JSON.stringify(filtered));
+    notifySync('venues');
+  }
+
+  const targetDb = db;
+  if (targetDb) {
+    await deleteDoc(doc(targetDb, 'venues', venueId));
   }
 }
 

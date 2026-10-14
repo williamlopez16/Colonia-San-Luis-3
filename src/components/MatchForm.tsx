@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import type { Team, Tournament, Player, Concept, Match, Callup } from '../types';
-import { saveMatch, saveTournament, generateUUID, syncMatchRefereeCharges } from '../services/dataService';
+import React, { useState, useMemo } from 'react';
+import type { Team, Tournament, Player, Concept, Venue, Match, Callup } from '../types';
+import {
+  saveMatch,
+  saveTournament,
+  saveVenue,
+  deleteVenue,
+  generateUUID,
+  syncMatchRefereeCharges,
+} from '../services/dataService';
 import {
   Calendar,
   Clock,
@@ -15,6 +22,10 @@ import {
   Square,
   Edit2,
   UserCheck,
+  Check,
+  Trash2,
+  Star,
+  Settings,
 } from 'lucide-react';
 
 interface MatchFormProps {
@@ -22,6 +33,7 @@ interface MatchFormProps {
   tournaments: Tournament[];
   players: Player[];
   concepts: Concept[];
+  venues?: Venue[];
   matchToEdit?: Match | null;
   onMatchCreated: (match: Match) => void;
   onCancel: () => void;
@@ -32,6 +44,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   tournaments,
   players,
   concepts,
+  venues = [],
   matchToEdit,
   onMatchCreated,
   onCancel,
@@ -64,15 +77,82 @@ export const MatchForm: React.FC<MatchFormProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [time, setTime] = useState<string>(matchToEdit?.time || '19:30');
-  const [location, setLocation] = useState<string>(
-    matchToEdit?.location || 'Cancha Sintética Municipal San Luis'
-  );
+  const defaultVenue = venues.find((v) => v.isDefault) || venues[0];
+  const initialLocation = matchToEdit?.location || defaultVenue?.name || 'Cancha Sintética Municipal San Luis';
+  const [location, setLocation] = useState<string>(initialLocation);
   const [refereeFee, setRefereeFee] = useState<string>(
     matchToEdit?.refereeFee || defaultFeeString
   );
   const [refereeCollectorName, setRefereeCollectorName] = useState<string>(
     matchToEdit?.refereeCollectorName || ''
   );
+
+  // Estados para gestión de canchas predeterminadas
+  const [showVenueManager, setShowVenueManager] = useState<boolean>(false);
+  const [newVenueName, setNewVenueName] = useState<string>('');
+  const [newVenueAddress, setNewVenueAddress] = useState<string>('');
+  const [newVenueIsDefault, setNewVenueIsDefault] = useState<boolean>(false);
+  const [isSavingVenue, setIsSavingVenue] = useState<boolean>(false);
+  const [venueToast, setVenueToast] = useState<string | null>(null);
+
+  const isCurrentLocationSaved = useMemo(() => {
+    if (!location.trim()) return false;
+    return venues.some(
+      (v) => v.name.trim().toLowerCase() === location.trim().toLowerCase()
+    );
+  }, [venues, location]);
+
+  const handleQuickSaveCurrentLocation = async () => {
+    if (!location.trim() || isCurrentLocationSaved) return;
+    setIsSavingVenue(true);
+    try {
+      await saveVenue({
+        teamId: team?.id,
+        name: location.trim(),
+        isDefault: venues.length === 0,
+      });
+      setVenueToast(`¡Cancha "${location.trim()}" guardada como predeterminada!`);
+      setTimeout(() => setVenueToast(null), 3500);
+    } catch (err) {
+      console.error('Error saving venue:', err);
+    } finally {
+      setIsSavingVenue(false);
+    }
+  };
+
+  const handleCreateVenue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVenueName.trim()) return;
+    setIsSavingVenue(true);
+    try {
+      const created = await saveVenue({
+        teamId: team?.id,
+        name: newVenueName.trim(),
+        address: newVenueAddress.trim() || undefined,
+        isDefault: newVenueIsDefault,
+      });
+      setLocation(created.name);
+      setNewVenueName('');
+      setNewVenueAddress('');
+      setNewVenueIsDefault(false);
+      setVenueToast(`¡Cancha "${created.name}" guardada y seleccionada!`);
+      setTimeout(() => setVenueToast(null), 3500);
+    } catch (err) {
+      console.error('Error creating venue:', err);
+    } finally {
+      setIsSavingVenue(false);
+    }
+  };
+
+  const handleDeleteVenue = async (venueId: string) => {
+    try {
+      await deleteVenue(venueId);
+      setVenueToast('Cancha eliminada del catálogo');
+      setTimeout(() => setVenueToast(null), 3000);
+    } catch (err) {
+      console.error('Error deleting venue:', err);
+    }
+  };
 
   // Players selection
   const activePlayers = players.filter((p) => p.status === 'Activo');
@@ -358,9 +438,20 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Lugar / Cancha
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-gray-700">
+                Lugar / Cancha
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowVenueManager(true)}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
+                title="Administrar o agregar canchas predeterminadas"
+              >
+                <Settings className="w-3 h-3" />
+                <span>Canchas</span>
+              </button>
+            </div>
             <div className="relative">
               <input
                 type="text"
@@ -372,6 +463,80 @@ export const MatchForm: React.FC<MatchFormProps> = ({
               <MapPin className="w-4 h-4 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
+        </div>
+
+        {/* Canchas Predeterminadas Quick Selector */}
+        <div className="bg-emerald-50/60 p-3 sm:p-3.5 rounded-2xl border border-emerald-100 space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-[11px] font-black text-emerald-950 flex items-center gap-1.5 uppercase tracking-wide">
+              <span>🏟️ Canchas Predeterminadas ({venues.length}):</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowVenueManager(true)}
+              className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+            >
+              <Settings className="w-3 h-3 text-emerald-600" />
+              <span>Administrar canchas</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {venues.map((v) => {
+              const isSelected = location.trim().toLowerCase() === v.name.trim().toLowerCase();
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setLocation(v.name)}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
+                    isSelected
+                      ? 'bg-emerald-700 text-white border-emerald-700 ring-2 ring-emerald-300'
+                      : 'bg-white hover:bg-emerald-50 text-gray-800 border-gray-200 hover:border-emerald-300'
+                  }`}
+                  title={v.address || v.name}
+                >
+                  <span>{isSelected ? '✓' : '🏟️'}</span>
+                  <span>{v.name}</span>
+                  {v.isDefault && <span className="text-[10px] opacity-80" title="Cancha habitual">⭐</span>}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => setShowVenueManager(true)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-emerald-50 text-emerald-800 border border-dashed border-emerald-300 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Nueva Cancha</span>
+            </button>
+          </div>
+
+          {/* Quick-save prompt if user typed a custom venue not saved in presets */}
+          {location.trim().length >= 3 && !isCurrentLocationSaved && (
+            <div className="pt-1 flex items-center justify-between gap-2 flex-wrap border-t border-emerald-100/70 mt-1">
+              <span className="text-[11px] text-gray-600">
+                ¿Juegan seguido aquí? Puedes guardarla en tus predeterminadas:
+              </span>
+              <button
+                type="button"
+                disabled={isSavingVenue}
+                onClick={handleQuickSaveCurrentLocation}
+                className="text-[11px] font-extrabold text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2.5 py-1 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+              >
+                <Star className="w-3 h-3 text-purple-600 fill-purple-600" />
+                <span>Guardar "{location.trim()}" en predeterminadas</span>
+              </button>
+            </div>
+          )}
+
+          {venueToast && (
+            <div className="p-2 bg-emerald-100 text-emerald-900 text-xs font-bold rounded-xl flex items-center gap-1.5 animate-fade-in border border-emerald-200">
+              <Check className="w-3.5 h-3.5 text-emerald-700" />
+              <span>{venueToast}</span>
+            </div>
+          )}
         </div>
 
         {/* Section 3: Referee Fee & Concepts */}
@@ -550,6 +715,177 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Modal: Administrador de Canchas Predeterminadas */}
+      {showVenueManager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-100 my-auto animate-scale-up">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-850 to-emerald-950 text-white p-5 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-300 border border-white/20 shadow-xs">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">Canchas Predeterminadas</h3>
+                  <p className="text-xs text-emerald-200 mt-0.5">
+                    Escenarios deportivos frecuentes para selección rápida
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVenueManager(false)}
+                className="p-1.5 rounded-full hover:bg-white/10 text-white transition cursor-pointer"
+                title="Cerrar modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Form to add a new venue */}
+              <form onSubmit={handleCreateVenue} className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3">
+                <h4 className="text-xs font-black uppercase text-gray-700 flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Agregar Nueva Cancha</span>
+                </h4>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Nombre del Escenario Deportivo / Cancha *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newVenueName}
+                    onChange={(e) => setNewVenueName(e.target.value)}
+                    placeholder="Ej. Cancha Sintética San Luis, Estadio Municipal..."
+                    className="w-full text-xs font-bold text-gray-900 bg-white px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Dirección o Punto de Referencia (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newVenueAddress}
+                    onChange={(e) => setNewVenueAddress(e.target.value)}
+                    placeholder="Ej. Sector Central, frente al polideportivo..."
+                    className="w-full text-xs text-gray-800 bg-white px-3 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={newVenueIsDefault}
+                    onChange={(e) => setNewVenueIsDefault(e.target.checked)}
+                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-[11px] font-semibold text-gray-700">
+                    Marcar como cancha habitual / principal del equipo ⭐
+                  </span>
+                </label>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="submit"
+                    disabled={isSavingVenue || !newVenueName.trim()}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isSavingVenue ? 'Guardando...' : 'Guardar Cancha'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* List of existing venues */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black uppercase text-gray-500">
+                  Canchas Guardadas ({venues.length})
+                </h4>
+
+                {venues.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    No tienes canchas guardadas aún. Agrega la primera arriba.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100 border border-gray-200 rounded-2xl overflow-hidden bg-white">
+                    {venues.map((v) => {
+                      const isSelected = location.trim().toLowerCase() === v.name.trim().toLowerCase();
+                      return (
+                        <div
+                          key={v.id}
+                          className="p-3 flex items-center justify-between gap-3 hover:bg-gray-50/80 transition"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-extrabold text-xs text-gray-900 truncate">
+                                {v.name}
+                              </span>
+                              {v.isDefault && (
+                                <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                                  Habitual ⭐
+                                </span>
+                              )}
+                              {isSelected && (
+                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                  ✓ Seleccionada
+                                </span>
+                              )}
+                            </div>
+                            {v.address && (
+                              <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                                {v.address}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLocation(v.name);
+                                setShowVenueManager(false);
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition cursor-pointer"
+                              title="Usar esta cancha para el partido"
+                            >
+                              Usar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteVenue(v.id)}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                              title="Eliminar cancha"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowVenueManager(false)}
+                className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold text-xs transition cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

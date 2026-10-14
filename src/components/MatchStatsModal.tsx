@@ -15,6 +15,7 @@ import {
   Plus,
   Minus,
   RotateCcw,
+  User,
 } from 'lucide-react';
 
 interface MatchStatsModalProps {
@@ -364,8 +365,8 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
                   >
                     {/* Player Info */}
                     <div className="flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-lg bg-emerald-800 text-white font-black text-xs flex items-center justify-center flex-shrink-0">
-                        {p.jerseyNumber}
+                      <span className="w-7 h-7 rounded-lg bg-emerald-800 text-white flex items-center justify-center flex-shrink-0">
+                        <User className="w-3.5 h-3.5 text-emerald-200" />
                       </span>
                       <div>
                         <p className="font-bold text-xs text-gray-900 leading-tight">

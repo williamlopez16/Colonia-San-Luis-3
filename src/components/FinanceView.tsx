@@ -652,7 +652,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-gray-50/80 text-gray-500 uppercase text-[10px] font-bold border-b border-gray-200">
-                <th className="py-3 px-4 w-12 text-center">Dorsal</th>
                 <th className="py-3 px-4">Jugador</th>
                 <th className="py-3 px-4 text-right text-amber-700 font-extrabold">Saldo Pendiente</th>
                 <th className="py-3 px-4 text-right text-emerald-800 font-bold">Total Pagado</th>
@@ -669,12 +668,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                     className="hover:bg-gray-50/60 transition group cursor-pointer"
                     onClick={() => setSelectedPlayerForFinance(row.player)}
                   >
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-block bg-emerald-800 text-white font-black text-xs px-2 py-0.5 rounded-md">
-                        {row.player.jerseyNumber}
-                      </span>
-                    </td>
-
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 text-sm block">
