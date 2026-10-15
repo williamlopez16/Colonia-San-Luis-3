@@ -341,7 +341,7 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-black text-white leading-tight mt-0.5">
-                Cartelera Oficial & Prompts IA
+                Cartelera Matchday & Prompts IA
               </h2>
             </div>
           </div>

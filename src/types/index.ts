@@ -94,6 +94,16 @@ export interface MatchScore {
   isPlayed?: boolean;
 }
 
+export interface MatchSubstitution {
+  id: string;
+  minute: number; // Minuto del cambio (ej. 45)
+  playerOutId: string;
+  playerOutName: string;
+  playerInId: string;
+  playerInName: string;
+  notes?: string; // Motivo opcional (lesión, táctico, rotación)
+}
+
 export interface PlayerMatchStats {
   playerId: string;
   playerName: string;
@@ -102,6 +112,11 @@ export interface PlayerMatchStats {
   assists: number;
   yellowCards: number;
   redCards: number;
+  // Control de alineación y minutos
+  isStarter?: boolean; // ¿Inició como titular?
+  minutesPlayed?: number; // Minutos disputados en el partido
+  subbedInMinute?: number; // Minuto en que ingresó desde el banco
+  subbedOutMinute?: number; // Minuto en que fue sustituido
 }
 
 export interface Match {
@@ -120,10 +135,16 @@ export interface Match {
   matchState?: MatchState;
   score?: MatchScore;
   playerStats?: PlayerMatchStats[];
+  matchDurationMinutes?: number; // Duración total del partido en minutos (por defecto 90)
+  substitutions?: MatchSubstitution[]; // Lista de cambios/sustituciones del partido
   callups: Callup[];
   postMatchDone?: boolean; // Control postpartido completado (asistencia real y arbitraje validados)
   postMatchFeePerPlayer?: number; // Cuota por jugador definida para este partido
   refereeCollectorName?: string; // Nombre de la persona que recogió el arbitraje ese día
+  // Opciones de convocatoria avanzadas
+  suggestedArrivalTime?: string; // Hora o anticipación sugerida de llegada a la cancha (ej. "18:45" o "45 min antes")
+  confirmationDeadline?: string; // Límite de confirmación / Cierre de convocatoria (YYYY-MM-DDTHH:mm o texto descriptivo)
+  itemsToBring?: string[]; // Implementos indispensables a recordar (Uniforme completo, Espinilleras, Cédula, Hidratación, etc.)
   createdAt: string;
   updatedAt: string;
 }

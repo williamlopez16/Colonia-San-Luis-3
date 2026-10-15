@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { Match, Team } from '../types';
 import { useAccessMode } from '../context/AccessModeContext';
-import { formatMatchDate, getConfirmationUrl, copyToClipboard } from '../services/whatsappService';
+import { formatMatchDate, formatDeadline, getConfirmationUrl, copyToClipboard } from '../services/whatsappService';
 import { TeamCrest } from './TeamCrest';
 import {
   Calendar,
@@ -29,6 +29,9 @@ import {
   X,
   RotateCcw,
   UserCheck,
+  Timer,
+  Bell,
+  Backpack,
 } from 'lucide-react';
 
 interface MatchListProps {
@@ -713,10 +716,37 @@ export const MatchList: React.FC<MatchListProps> = ({
                                   Recogió: {match.refereeCollectorName}
                                 </span>
                               )}
+                              {match.suggestedArrivalTime && (
+                                <span
+                                  className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md font-bold text-[11px]"
+                                  title={`Llegada sugerida a la cancha: ${match.suggestedArrivalTime}`}
+                                >
+                                  <Timer className="w-3 h-3 text-amber-600" />
+                                  Llegada: {match.suggestedArrivalTime}
+                                </span>
+                              )}
+                              {match.confirmationDeadline && (
+                                <span
+                                  className="inline-flex items-center gap-1 bg-rose-50 text-rose-900 border border-rose-200 px-2 py-0.5 rounded-md font-bold text-[11px]"
+                                  title={`Cierre de convocatoria: ${formatDeadline(match.confirmationDeadline)}`}
+                                >
+                                  <Bell className="w-3 h-3 text-rose-600" />
+                                  Cierre: {formatDeadline(match.confirmationDeadline)}
+                                </span>
+                              )}
+                              {match.itemsToBring && match.itemsToBring.length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-900 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[11px]"
+                                  title={`Implementos requeridos: ${match.itemsToBring.join(' • ')}`}
+                                >
+                                  <Backpack className="w-3 h-3 text-emerald-700" />
+                                  {match.itemsToBring.length} implementos
+                                </span>
+                              )}
                             </div>
 
                             {/* Stats summary badge if recorded */}
-                            {(totalGoalsScored > 0 || totalAssists > 0 || totalCards > 0 || isFinished) && (
+                            {(totalGoalsScored > 0 || totalAssists > 0 || totalCards > 0 || (match.substitutions && match.substitutions.length > 0) || isFinished) && (
                               <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
                                 <span>⚽ {totalGoalsScored} Goles</span>
                                 <span>•</span>
@@ -725,6 +755,12 @@ export const MatchList: React.FC<MatchListProps> = ({
                                   <>
                                     <span>•</span>
                                     <span>🟨 {totalCards} Tarjetas</span>
+                                  </>
+                                )}
+                                {match.substitutions && match.substitutions.length > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>🔄 {match.substitutions.length} Cambios</span>
                                   </>
                                 )}
                               </div>
@@ -792,7 +828,7 @@ export const MatchList: React.FC<MatchListProps> = ({
 
                           {/* Actions Toolbar */}
                           <div className="flex items-center gap-2 justify-end flex-wrap">
-                            {/* Botón Unificado Cartelera & IA (solo admin) */}
+                            {/* Botón Cartelera Matchday (solo admin) */}
                             {isAdminMode && onOpenMatchdayGraphic && (
                               <button
                                 onClick={(e) => {
@@ -800,41 +836,54 @@ export const MatchList: React.FC<MatchListProps> = ({
                                   onOpenMatchdayGraphic(match);
                                 }}
                                 className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-                                title="Cartelera oficial HD y generador de prompts para IA"
+                                title="Cartelera oficial Matchday para redes sociales y WhatsApp"
                               >
                                 <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                                <span>Cartelera & IA</span>
+                                <span>Cartelera Matchday</span>
                               </button>
                             )}
 
-                            {/* Botón Arbitraje del Partido */}
+                            {/* Botón Tesorería y Arbitrajes */}
                             {onOpenPostMatch && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onOpenPostMatch(match);
                                 }}
-                                className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-                                title="Gestión de arbitraje, pagos y cuotas de este partido"
+                                className="px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                                title="Tesorería, recaudo de arbitrajes y cuotas de este partido"
                               >
                                 <DollarSign className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" />
-                                <span>Arbitraje</span>
+                                <span>Tesorería y Arbitrajes</span>
                               </button>
                             )}
 
-                            {/* Botón Cargar/Ver Marcador & Estadísticas */}
+                            {/* Botón Confirmaciones */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectMatch(match.id);
+                              }}
+                              className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 font-extrabold text-xs flex items-center gap-1.5 border border-emerald-200 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                              title="Ver y gestionar confirmaciones de asistencia del plantel"
+                            >
+                              <Users className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+                              <span>Confirmaciones</span>
+                            </button>
+
+                            {/* Botón Cargar/Ver Estadísticas del Partido */}
                             {(isAdminMode || isFinished) && (
                               <button
                                 onClick={(e) => handleOpenStats(e, match.id)}
                                 className="px-3 py-2 rounded-xl bg-gray-900 hover:bg-black text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
                                 title={
                                   isAdminMode
-                                    ? 'Cargar o editar goles, asistencias y tarjetas'
+                                    ? 'Cargar o editar resultado, goles, cambios y minutos'
                                     : 'Ver estadísticas del partido'
                                 }
                               >
-                                <BarChart2 className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-                                <span>Marcador</span>
+                                <BarChart2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                <span>Estadísticas del Partido</span>
                               </button>
                             )}
 
@@ -842,7 +891,7 @@ export const MatchList: React.FC<MatchListProps> = ({
                             <button
                               onClick={(e) => handleCopyLink(e, match.id)}
                               className="px-3 py-2 text-gray-700 hover:text-emerald-800 hover:bg-emerald-50 bg-white rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold border border-gray-200 shadow-2xs active:scale-95"
-                              title="Copiar enlace de confirmación"
+                              title="Copiar enlace de confirmación pública"
                             >
                               <Share2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                               <span>{copiedId === match.id ? '¡Copiado!' : 'Enlace'}</span>

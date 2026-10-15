@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Match, Team, AttendanceStatus } from '../types';
 import { subscribeToMatch, updatePlayerAttendance } from '../services/dataService';
-import { formatMatchDate } from '../services/whatsappService';
+import { formatMatchDate, formatDeadline } from '../services/whatsappService';
 import { TeamCrest } from './TeamCrest';
 import {
   Calendar,
@@ -19,6 +19,10 @@ import {
   RotateCcw,
   Sparkles,
   UserCheck,
+  Timer,
+  Bell,
+  Backpack,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface PublicConfirmViewProps {
@@ -47,6 +51,37 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Checklist interactivo de implementos empacados para el jugador
+  const [packedItems, setPackedItems] = useState<Set<string>>(new Set());
+
+  const togglePackedItem = (item: string) => {
+    setPackedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
+  };
+
+  const deadlineInfo = useMemo(() => {
+    if (!match?.confirmationDeadline) return null;
+    try {
+      const deadlineDate = new Date(match.confirmationDeadline);
+      if (isNaN(deadlineDate.getTime())) return null;
+      const now = new Date();
+      const diffMs = deadlineDate.getTime() - now.getTime();
+      const isPassed = diffMs <= 0;
+      const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
+      return {
+        isPassed,
+        hoursLeft,
+        formatted: formatDeadline(match.confirmationDeadline),
+      };
+    } catch {
+      return null;
+    }
+  }, [match?.confirmationDeadline]);
 
   // Subscribe in real-time to this match
   useEffect(() => {
@@ -274,6 +309,102 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
                 Recoge el arbitraje:
               </span>
               <span className="font-extrabold text-xs text-purple-900">{match.refereeCollectorName}</span>
+            </div>
+          )}
+
+          {/* Instrucciones & Implementos a Recordar */}
+          {(match.suggestedArrivalTime || deadlineInfo || (match.itemsToBring && match.itemsToBring.length > 0)) && (
+            <div className="p-4 sm:p-5 bg-gradient-to-br from-amber-50/70 via-white to-emerald-50/50 border-b border-gray-200 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  Instrucciones Clave para la Cancha
+                </span>
+                {deadlineInfo && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                      deadlineInfo.isPassed
+                        ? 'bg-rose-100 text-rose-900 border-rose-300'
+                        : deadlineInfo.hoursLeft <= 6
+                        ? 'bg-amber-100 text-amber-900 border-amber-300 animate-pulse'
+                        : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                    }`}
+                  >
+                    <Bell className="w-3 h-3" />
+                    {deadlineInfo.isPassed ? 'Plazo de confirmación finalizado' : `Cierre: ${deadlineInfo.formatted}`}
+                  </span>
+                )}
+              </div>
+
+              {/* Grid: Llegada & Cierre */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {match.suggestedArrivalTime && (
+                  <div className="flex items-start gap-2 bg-white/90 p-2.5 rounded-xl border border-amber-200/90 shadow-2xs">
+                    <Timer className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase">Llegada sugerida</p>
+                      <p className="font-extrabold text-amber-950">{match.suggestedArrivalTime}</p>
+                    </div>
+                  </div>
+                )}
+
+                {deadlineInfo && (
+                  <div
+                    className={`flex items-start gap-2 p-2.5 rounded-xl border shadow-2xs ${
+                      deadlineInfo.isPassed ? 'bg-rose-50/80 border-rose-200' : 'bg-white/90 border-blue-200/90'
+                    }`}
+                  >
+                    <Clock
+                      className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                        deadlineInfo.isPassed ? 'text-rose-600' : 'text-blue-600'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase">Límite de confirmación</p>
+                      <p className={`font-extrabold ${deadlineInfo.isPassed ? 'text-rose-900' : 'text-blue-950'}`}>
+                        {deadlineInfo.formatted}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Implementos obligatorios / Recordatorio */}
+              {match.itemsToBring && match.itemsToBring.length > 0 && (
+                <div className="pt-2 border-t border-gray-100 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                      <Backpack className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Implementos indispensables (toca para marcar en tu maleta):</span>
+                    </p>
+                    <span className="text-[10px] font-extrabold text-emerald-700">
+                      {packedItems.size} / {match.itemsToBring.length} listos
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {match.itemsToBring.map((item) => {
+                      const isPacked = packedItems.has(item);
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => togglePackedItem(item)}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                            isPacked
+                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-2xs line-through opacity-85'
+                              : 'bg-white hover:bg-emerald-50 text-gray-800 border-gray-300 shadow-2xs'
+                          }`}
+                          title={isPacked ? 'Marcado como empacado' : 'Toca para marcar como empacado'}
+                        >
+                          <Check className={`w-3.5 h-3.5 ${isPacked ? 'text-emerald-200' : 'text-gray-400'}`} />
+                          <span>{item}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

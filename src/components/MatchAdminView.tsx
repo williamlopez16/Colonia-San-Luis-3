@@ -13,6 +13,7 @@ import {
   copyToClipboard,
   getConfirmationUrl,
   formatMatchDate,
+  formatDeadline,
 } from '../services/whatsappService';
 import {
   Calendar,
@@ -38,6 +39,9 @@ import {
   FileText,
   Search,
   UserCheck,
+  Timer,
+  Bell,
+  Backpack,
 } from 'lucide-react';
 
 interface MatchAdminViewProps {
@@ -218,27 +222,27 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Botón Unificado Cartelera & IA (solo admin) */}
+            {/* Botón Cartelera Matchday (solo admin) */}
             {isAdminMode && onOpenMatchdayGraphic && (
               <button
                 onClick={onOpenMatchdayGraphic}
                 className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-                title="Generar cartelera oficial HD y prompts listos para IA"
+                title="Generar cartelera oficial Matchday para redes sociales y WhatsApp"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                <span>Cartelera & IA</span>
+                <span>Cartelera Matchday</span>
               </button>
             )}
 
-            {/* Botón Arbitraje del Partido */}
+            {/* Botón Tesorería y Arbitrajes */}
             {onOpenPostMatch && (
               <button
                 onClick={onOpenPostMatch}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-                title="Gestión de arbitraje y pagos de los jugadores para este partido"
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                title="Tesorería, recaudo de arbitrajes y cuotas de este partido"
               >
                 <DollarSign className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" />
-                <span>Arbitraje</span>
+                <span>Tesorería y Arbitrajes</span>
               </button>
             )}
 
@@ -246,10 +250,10 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
             <button
               onClick={onOpenMatchStats}
               className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-black text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-              title="Cargar o ver resultado final, goles, asistencias y tarjetas"
+              title="Cargar o ver resultado final, goles, asistencias, tarjetas y cambios"
             >
-              <BarChart2 className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-              <span>Marcador</span>
+              <BarChart2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+              <span>Estadísticas del Partido</span>
             </button>
 
             {/* Botón Editar Partido (solo admin) */}
@@ -373,6 +377,27 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
               <span className="flex items-center gap-1 font-bold text-purple-900 bg-purple-50/90 px-2.5 py-1 rounded-lg border border-purple-200">
                 <UserCheck className="w-3.5 h-3.5 text-purple-600" />
                 Recogió: {match.refereeCollectorName}
+              </span>
+            )}
+            {match.suggestedArrivalTime && (
+              <span className="flex items-center gap-1 font-bold text-amber-900 bg-amber-50/90 px-2.5 py-1 rounded-lg border border-amber-200">
+                <Timer className="w-3.5 h-3.5 text-amber-600" />
+                Llegada: {match.suggestedArrivalTime}
+              </span>
+            )}
+            {match.confirmationDeadline && (
+              <span className="flex items-center gap-1 font-bold text-rose-900 bg-rose-50/90 px-2.5 py-1 rounded-lg border border-rose-200">
+                <Bell className="w-3.5 h-3.5 text-rose-600" />
+                Cierre: {formatDeadline(match.confirmationDeadline)}
+              </span>
+            )}
+            {match.itemsToBring && match.itemsToBring.length > 0 && (
+              <span
+                className="flex items-center gap-1 font-bold text-emerald-900 bg-emerald-50/90 px-2.5 py-1 rounded-lg border border-emerald-200"
+                title={match.itemsToBring.join(' • ')}
+              >
+                <Backpack className="w-3.5 h-3.5 text-emerald-700" />
+                {match.itemsToBring.length} implementos
               </span>
             )}
           </div>

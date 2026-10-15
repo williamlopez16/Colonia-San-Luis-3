@@ -8,6 +8,7 @@ import {
   generateUUID,
   syncMatchRefereeCharges,
 } from '../services/dataService';
+import { formatDeadline } from '../services/whatsappService';
 import {
   Calendar,
   Clock,
@@ -26,6 +27,11 @@ import {
   Trash2,
   Star,
   Settings,
+  Shield,
+  Backpack,
+  Timer,
+  Bell,
+  Sparkles,
 } from 'lucide-react';
 
 interface MatchFormProps {
@@ -86,6 +92,116 @@ export const MatchForm: React.FC<MatchFormProps> = ({
   const [refereeCollectorName, setRefereeCollectorName] = useState<string>(
     matchToEdit?.refereeCollectorName || ''
   );
+
+  // Estados para opciones avanzadas de convocatoria
+  const [suggestedArrivalTime, setSuggestedArrivalTime] = useState<string>(
+    matchToEdit?.suggestedArrivalTime || ''
+  );
+  const [confirmationDeadline, setConfirmationDeadline] = useState<string>(
+    matchToEdit?.confirmationDeadline || ''
+  );
+
+  const PRESET_ITEMS = [
+    'Uniforme completo (Camiseta, pantaloneta, medias)',
+    'Espinilleras obligatorias',
+    'Cédula / Documento de identidad físico',
+    'Hidratación personal',
+    'Calzado adecuado (Guayos / Sintética)',
+    'Vendaje / Cinta para tobillos',
+    'Guantes de arquero',
+    'Cuota de arbitraje en efectivo / Nequi',
+  ];
+
+  const [itemsToBring, setItemsToBring] = useState<string[]>(() => {
+    if (matchToEdit?.itemsToBring && matchToEdit.itemsToBring.length > 0) {
+      return matchToEdit.itemsToBring;
+    }
+    // Predeterminados para nueva convocatoria
+    return [
+      'Uniforme completo (Camiseta, pantaloneta, medias)',
+      'Espinilleras obligatorias',
+      'Cédula / Documento de identidad físico',
+      'Hidratación personal',
+    ];
+  });
+  const [customItemInput, setCustomItemInput] = useState<string>('');
+
+  // Cálculo automático de llegada sugerida según la hora del partido
+  const calculateSuggestedTime = (minsBefore: number): string => {
+    if (!time) return `${minsBefore} min antes`;
+    try {
+      const [hStr, mStr] = time.split(':');
+      let totalMins = parseInt(hStr, 10) * 60 + parseInt(mStr, 10) - minsBefore;
+      if (totalMins < 0) totalMins += 24 * 60;
+      const hours = Math.floor(totalMins / 60);
+      const minutes = totalMins % 60;
+      const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      return `${formatted} (${minsBefore} min antes)`;
+    } catch {
+      return `${minsBefore} min antes`;
+    }
+  };
+
+  // Cálculo de presets para fecha/hora límite de confirmación
+  const calculateDeadlinePreset = (type: '24h' | '12h' | 'same_day_noon' | 'day_before_night') => {
+    if (!date) return;
+    try {
+      const matchHour = time ? parseInt(time.split(':')[0], 10) : 19;
+      const matchMin = time ? parseInt(time.split(':')[1], 10) : 30;
+      const matchDateTime = new Date(`${date}T${matchHour.toString().padStart(2, '0')}:${matchMin.toString().padStart(2, '0')}:00`);
+
+      let targetDate: Date;
+      if (type === '24h') {
+        targetDate = new Date(matchDateTime.getTime() - 24 * 60 * 60 * 1000);
+      } else if (type === '12h') {
+        targetDate = new Date(matchDateTime.getTime() - 12 * 60 * 60 * 1000);
+      } else if (type === 'same_day_noon') {
+        targetDate = new Date(`${date}T12:00:00`);
+      } else {
+        // Día anterior 8:00 PM
+        const d = new Date(matchDateTime);
+        d.setDate(d.getDate() - 1);
+        const y = d.getFullYear();
+        const m = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        targetDate = new Date(`${y}-${m}-${day}T20:00:00`);
+      }
+
+      // Convertir a string para input datetime-local (YYYY-MM-DDTHH:mm)
+      const year = targetDate.getFullYear();
+      const month = (targetDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = targetDate.getDate().toString().padStart(2, '0');
+      const hours = targetDate.getHours().toString().padStart(2, '0');
+      const mins = targetDate.getMinutes().toString().padStart(2, '0');
+      setConfirmationDeadline(`${year}-${month}-${day}T${hours}:${mins}`);
+    } catch (e) {
+      console.warn('Error setting deadline preset:', e);
+    }
+  };
+
+  const toggleItemToBring = (itemText: string) => {
+    setItemsToBring((prev) => {
+      if (prev.includes(itemText)) {
+        return prev.filter((i) => i !== itemText);
+      } else {
+        return [...prev, itemText];
+      }
+    });
+  };
+
+  const handleAddCustomItem = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = customItemInput.trim();
+    if (!trimmed) return;
+    if (!itemsToBring.includes(trimmed)) {
+      setItemsToBring((prev) => [...prev, trimmed]);
+    }
+    setCustomItemInput('');
+  };
+
+  const handleRemoveItem = (itemText: string) => {
+    setItemsToBring((prev) => prev.filter((i) => i !== itemText));
+  };
 
   // Estados para gestión de canchas predeterminadas
   const [showVenueManager, setShowVenueManager] = useState<boolean>(false);
@@ -284,6 +400,9 @@ export const MatchForm: React.FC<MatchFormProps> = ({
         location: location.trim(),
         refereeFee: refereeFee.trim(),
         refereeCollectorName: refereeCollectorName.trim() || undefined,
+        suggestedArrivalTime: suggestedArrivalTime.trim() || undefined,
+        confirmationDeadline: confirmationDeadline.trim() || undefined,
+        itemsToBring: itemsToBring.length > 0 ? itemsToBring : undefined,
         status: matchToEdit ? matchToEdit.status : 'Abierta',
         callups,
         createdAt: matchToEdit ? matchToEdit.createdAt : new Date().toISOString(),
@@ -618,7 +737,266 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           </div>
         </div>
 
-        {/* Section 4: Callup selection from roster */}
+        {/* Section 4: Convocatoria Options (Llegada Sugerida, Límite de Confirmación e Implementos) */}
+        <div className="bg-gradient-to-br from-amber-50/60 via-white to-emerald-50/40 p-4 sm:p-5 rounded-2xl border border-amber-200/80 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 border-b border-amber-200/60 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-800 flex items-center justify-center border border-amber-300">
+                <Sparkles className="w-4 h-4 text-amber-700" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-gray-900">
+                  Opciones de Convocatoria (Llegada, Cierre e Implementos)
+                </h3>
+                <p className="text-[11px] text-gray-500">
+                  Instrucciones indispensables para los jugadores al confirmar y en el mensaje de WhatsApp.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. Llegada sugerida */}
+            <div className="bg-white/90 p-3.5 rounded-xl border border-gray-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+                  <Timer className="w-4 h-4 text-amber-600" />
+                  <span>Llegada sugerida a la cancha</span>
+                </label>
+                {suggestedArrivalTime && (
+                  <button
+                    type="button"
+                    onClick={() => setSuggestedArrivalTime('')}
+                    className="text-[10px] text-gray-400 hover:text-rose-600 font-bold cursor-pointer"
+                  >
+                    Borrar
+                  </button>
+                )}
+              </div>
+
+              {/* Quick preset chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setSuggestedArrivalTime(calculateSuggestedTime(45))}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer"
+                >
+                  45 min antes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestedArrivalTime(calculateSuggestedTime(30))}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer"
+                >
+                  30 min antes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestedArrivalTime(calculateSuggestedTime(60))}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer"
+                >
+                  1 hora antes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestedArrivalTime(calculateSuggestedTime(15))}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition cursor-pointer"
+                >
+                  15 min antes
+                </button>
+              </div>
+
+              <input
+                type="text"
+                value={suggestedArrivalTime}
+                onChange={(e) => setSuggestedArrivalTime(e.target.value)}
+                placeholder="Ej. 18:45 (45 min antes para calentar)"
+                className="w-full px-3 py-2 bg-gray-50/70 rounded-xl border border-gray-300 text-xs font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-amber-200 outline-hidden"
+              />
+            </div>
+
+            {/* 2. Límite de confirmación (Cierre) */}
+            <div className="bg-white/90 p-3.5 rounded-xl border border-gray-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+                  <Bell className="w-4 h-4 text-rose-600" />
+                  <span>Límite de confirmación (Cierre)</span>
+                </label>
+                {confirmationDeadline && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmationDeadline('')}
+                    className="text-[10px] text-gray-400 hover:text-rose-600 font-bold cursor-pointer"
+                  >
+                    Sin límite
+                  </button>
+                )}
+              </div>
+
+              {/* Quick preset chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => calculateDeadlinePreset('24h')}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-200 transition cursor-pointer"
+                >
+                  24h antes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => calculateDeadlinePreset('12h')}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-200 transition cursor-pointer"
+                >
+                  12h antes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => calculateDeadlinePreset('same_day_noon')}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-200 transition cursor-pointer"
+                >
+                  Mismo día 12 PM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => calculateDeadlinePreset('day_before_night')}
+                  className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-200 transition cursor-pointer"
+                >
+                  Día anterior 8 PM
+                </button>
+              </div>
+
+              <input
+                type="datetime-local"
+                value={confirmationDeadline}
+                onChange={(e) => setConfirmationDeadline(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50/70 rounded-xl border border-gray-300 text-xs font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-rose-200 outline-hidden"
+              />
+
+              {confirmationDeadline && (
+                <div className="text-[11px] font-bold text-rose-800 bg-rose-50/80 px-2 py-1 rounded-lg border border-rose-200 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-rose-600 flex-shrink-0" />
+                  <span>Cierre programado: {formatDeadline(confirmationDeadline)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Implementos a recordar para la convocatoria */}
+          <div className="bg-white/90 p-3.5 rounded-xl border border-gray-200 space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+                <Backpack className="w-4 h-4 text-emerald-700" />
+                <span>Implementos a recordar para el partido</span>
+                <span className="text-[11px] font-normal text-gray-500">
+                  ({itemsToBring.length} seleccionados)
+                </span>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setItemsToBring(PRESET_ITEMS.slice(0, 4))}
+                  className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  Básicos
+                </button>
+                <span className="text-gray-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => setItemsToBring([...PRESET_ITEMS])}
+                  className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  Todos
+                </button>
+                <span className="text-gray-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => setItemsToBring([])}
+                  className="text-[10px] font-bold text-gray-400 hover:text-rose-600 cursor-pointer"
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+
+            {/* Catalog of pre-configured chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {PRESET_ITEMS.map((itemText) => {
+                const isSelected = itemsToBring.includes(itemText);
+                return (
+                  <button
+                    key={itemText}
+                    type="button"
+                    onClick={() => toggleItemToBring(itemText)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                      isSelected
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-2xs'
+                        : 'bg-white hover:bg-emerald-50 text-gray-700 border-gray-200'
+                    }`}
+                  >
+                    {isSelected ? (
+                      <Check className="w-3 h-3 text-emerald-200 flex-shrink-0" />
+                    ) : (
+                      <Plus className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    )}
+                    <span>{itemText}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom items already added that might not be in PRESET_ITEMS */}
+            {itemsToBring.some((item) => !PRESET_ITEMS.includes(item)) && (
+              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-bold text-gray-500 uppercase">Personalizados:</span>
+                {itemsToBring
+                  .filter((item) => !PRESET_ITEMS.includes(item))
+                  .map((customItem) => (
+                    <span
+                      key={customItem}
+                      className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-900 border border-purple-200 flex items-center gap-1"
+                    >
+                      <span>{customItem}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(customItem)}
+                        className="text-purple-400 hover:text-purple-800 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+            )}
+
+            {/* Add custom item form */}
+            <div className="pt-1 flex items-center gap-2">
+              <input
+                type="text"
+                value={customItemInput}
+                onChange={(e) => setCustomItemInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCustomItem();
+                  }
+                }}
+                placeholder="+ Agregar otro implemento personalizado (ej. Peto blanco, Balón #5)..."
+                className="flex-1 px-3 py-1.5 bg-gray-50/70 rounded-xl border border-gray-300 text-xs font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-emerald-200 outline-hidden"
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomItem}
+                disabled={!customItemInput.trim()}
+                className="px-3 py-1.5 rounded-xl bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Agregar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 5: Callup selection from roster */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

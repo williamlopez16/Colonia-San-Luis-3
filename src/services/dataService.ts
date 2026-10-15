@@ -28,6 +28,7 @@ import type {
   MatchScore,
   MatchState,
   PlayerMatchStats,
+  MatchSubstitution,
   Charge,
   ChargeType,
   ChargeStatus,
@@ -1465,13 +1466,15 @@ export async function deleteMatch(matchId: string): Promise<void> {
 }
 
 /**
- * Save match result and player match statistics (goals, assists, cards)
+ * Save match result and player match statistics (goals, assists, cards, minutes, substitutions)
  */
 export async function saveMatchStats(
   matchId: string,
   score: MatchScore,
   matchState: MatchState,
-  playerStats: PlayerMatchStats[]
+  playerStats: PlayerMatchStats[],
+  substitutions?: MatchSubstitution[],
+  matchDurationMinutes?: number
 ): Promise<void> {
   const targetDb = db;
   let matchToUpdate: Match | null = null;
@@ -1500,6 +1503,12 @@ export async function saveMatchStats(
   matchToUpdate.score = score;
   matchToUpdate.matchState = matchState;
   matchToUpdate.playerStats = playerStats;
+  if (substitutions !== undefined) {
+    matchToUpdate.substitutions = substitutions;
+  }
+  if (matchDurationMinutes !== undefined) {
+    matchToUpdate.matchDurationMinutes = matchDurationMinutes;
+  }
   matchToUpdate.updatedAt = new Date().toISOString();
 
   await saveMatch(matchToUpdate);

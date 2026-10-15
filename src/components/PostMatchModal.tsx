@@ -430,7 +430,7 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-emerald-950 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <span>💰 Arbitraje del Partido</span>
+                  <span>💰 Tesorería y Arbitrajes</span>
                 </span>
                 <span className="text-xs text-emerald-200">
                   {match.tournamentName || 'Torneo'}

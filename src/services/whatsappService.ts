@@ -53,6 +53,30 @@ export function formatMatchDate(dateString: string): string {
   return dateString;
 }
 
+export function formatDeadline(deadlinestr?: string): string {
+  if (!deadlinestr) return '';
+  try {
+    if (deadlinestr.includes('T')) {
+      const dateObj = new Date(deadlinestr);
+      if (!isNaN(dateObj.getTime())) {
+        const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const dName = days[dateObj.getDay()];
+        const dNum = dateObj.getDate();
+        const mName = months[dateObj.getMonth()];
+        let hours = dateObj.getHours();
+        const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        return `${dName} ${dNum} de ${mName}, ${hours}:${minutes} ${ampm}`;
+      }
+    }
+  } catch (err) {
+    console.warn('Error formatting deadline:', err);
+  }
+  return deadlinestr;
+}
+
 export function generateWhatsAppMessage(team: Team, match: Match): string {
   const confirmationUrl = getConfirmationUrl(match.id);
   const formattedDate = formatMatchDate(match.date);
@@ -98,6 +122,26 @@ export function generateWhatsAppMessage(team: Team, match: Match): string {
     if (match.refereeCollectorName && match.refereeCollectorName.trim()) {
       lines.push(`👤 Recauda el arbitraje: ${match.refereeCollectorName.trim()}`);
     }
+    lines.push('');
+  }
+
+  // Opciones avanzadas de convocatoria
+  const reminderLines: string[] = [];
+  if (match.suggestedArrivalTime && match.suggestedArrivalTime.trim()) {
+    reminderLines.push(`⏰ Llegada sugerida: ${match.suggestedArrivalTime.trim()}`);
+  }
+  if (match.confirmationDeadline && match.confirmationDeadline.trim()) {
+    reminderLines.push(`⏳ Límite de confirmación: ${formatDeadline(match.confirmationDeadline.trim())}`);
+  }
+  if (match.itemsToBring && match.itemsToBring.length > 0) {
+    reminderLines.push(`🎒 Implementos indispensables:`);
+    match.itemsToBring.forEach((item) => {
+      reminderLines.push(`  • ${item.trim()}`);
+    });
+  }
+
+  if (reminderLines.length > 0) {
+    lines.push(...reminderLines);
     lines.push('');
   }
 
