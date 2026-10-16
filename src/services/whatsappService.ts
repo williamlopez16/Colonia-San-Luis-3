@@ -125,23 +125,22 @@ export function generateWhatsAppMessage(team: Team, match: Match): string {
     lines.push('');
   }
 
-  // Opciones avanzadas de convocatoria
-  const reminderLines: string[] = [];
+  // Opciones avanzadas de convocatoria con separación visual clara y organizada
   if (match.suggestedArrivalTime && match.suggestedArrivalTime.trim()) {
-    reminderLines.push(`⏰ Llegada sugerida: ${match.suggestedArrivalTime.trim()}`);
-  }
-  if (match.confirmationDeadline && match.confirmationDeadline.trim()) {
-    reminderLines.push(`⏳ Límite de confirmación: ${formatDeadline(match.confirmationDeadline.trim())}`);
-  }
-  if (match.itemsToBring && match.itemsToBring.length > 0) {
-    reminderLines.push(`🎒 Implementos indispensables:`);
-    match.itemsToBring.forEach((item) => {
-      reminderLines.push(`  • ${item.trim()}`);
-    });
+    lines.push(`⏰ Llegada sugerida: ${match.suggestedArrivalTime.trim()}`);
+    lines.push('');
   }
 
-  if (reminderLines.length > 0) {
-    lines.push(...reminderLines);
+  if (match.confirmationDeadline && match.confirmationDeadline.trim()) {
+    lines.push(`⏳ Límite de confirmación: ${formatDeadline(match.confirmationDeadline.trim())}`);
+    lines.push('');
+  }
+
+  if (match.itemsToBring && match.itemsToBring.length > 0) {
+    lines.push('🎒 Implementos indispensables:');
+    match.itemsToBring.forEach((item) => {
+      lines.push(`  • ${item.trim()}`);
+    });
     lines.push('');
   }
 
@@ -151,7 +150,8 @@ export function generateWhatsAppMessage(team: Team, match: Match): string {
   lines.push('');
   lines.push('¡Vamos equipo! 💪');
 
-  return lines.join('\n');
+  // Normalizar espaciado para que siempre se vea limpio (máximo 1 línea en blanco consecutiva)
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 export function openWhatsAppShare(text: string): void {

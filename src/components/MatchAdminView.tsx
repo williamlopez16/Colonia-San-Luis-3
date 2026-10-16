@@ -275,9 +275,9 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
           <div className="grid grid-cols-7 items-center gap-2 sm:gap-4 py-2">
             {/* Left: Home Team (Centered) */}
             <div className="col-span-3 flex flex-col items-center justify-center text-center">
-              <TeamCrest name={team?.name || 'Colonia San Luis'} isOurTeam size="xl" className="flex-shrink-0" />
+              <TeamCrest name={team?.name || 'Colonia San Luis F.C'} isOurTeam size="xl" className="flex-shrink-0" />
               <h2 className="text-base sm:text-xl font-black text-gray-900 leading-tight mt-2 text-center max-w-[220px]">
-                {team?.name || 'Colonia San Luis'}
+                {team?.name || 'Colonia San Luis F.C'}
               </h2>
             </div>
 

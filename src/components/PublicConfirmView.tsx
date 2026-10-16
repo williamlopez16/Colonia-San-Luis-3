@@ -215,9 +215,9 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
             <div className="grid grid-cols-7 items-center gap-2 py-3">
               {/* Left: Home Team (Centered) */}
               <div className="col-span-3 flex flex-col items-center justify-center text-center">
-                <TeamCrest name={team?.name || 'Colonia San Luis'} isOurTeam size="lg" />
+                <TeamCrest name={team?.name || 'Colonia San Luis F.C'} isOurTeam size="lg" />
                 <h1 className="text-xs sm:text-sm font-black tracking-tight mt-2 leading-tight text-center line-clamp-2 max-w-[180px]">
-                  {team?.name || 'Colonia San Luis'}
+                  {team?.name || 'Colonia San Luis F.C'}
                 </h1>
               </div>
 

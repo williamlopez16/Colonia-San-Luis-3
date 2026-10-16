@@ -1,5 +1,5 @@
-// Service Worker for Convocatoria Fútbol PWA - Network First Strategy
-const CACHE_NAME = 'convocatoria-v3';
+// Service Worker for Colonia San Luis F.C PWA - Network First Strategy
+const CACHE_NAME = 'colonia-san-luis-v4';
 
 self.addEventListener('install', () => {
   // Activate immediately without waiting for old tabs to close

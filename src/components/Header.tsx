@@ -70,16 +70,16 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Top bar with team name and quick actions */}
         <div className="flex items-center justify-between py-3 border-b border-emerald-700/60">
           <div className="flex items-center gap-3 relative" ref={menuRef}>
-            {/* Official Club Logo Crest */}
+            {/* Official Club Logo Crest (Escudo) */}
             <div
-              className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center p-0.5 shadow-xs border border-emerald-400/40 flex-shrink-0 cursor-pointer overflow-hidden hover:scale-105 transition-transform"
+              className="w-12 h-12 flex items-center justify-center flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
               onClick={() => setIsTeamMenuOpen(!isTeamMenuOpen)}
-              title="Cambiar de equipo o configurar"
+              title="Colonia San Luis F.C - Escudo oficial"
             >
               <img
-                src={(team?.logoUrl && !team.logoUrl.includes('.jpg')) ? team.logoUrl : '/team_logo.png?v=3'}
-                alt={team?.name || 'Colonia de San Luis'}
-                className="w-full h-full object-contain filter drop-shadow-xs"
+                src={(team?.logoUrl && !team.logoUrl.includes('.jpg')) ? team.logoUrl : '/team_logo.png?v=4'}
+                alt={team?.name || 'Colonia San Luis F.C'}
+                className="w-full h-full object-contain filter drop-shadow-md"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}
@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="font-extrabold text-base sm:text-lg leading-tight hover:text-emerald-200 cursor-pointer transition flex items-center gap-1.5 text-left"
                   title="Toca para cambiar rápidamente entre equipos"
                 >
-                  <span className="truncate max-w-[190px] sm:max-w-[280px]">{team?.name || 'Mi Equipo de Fútbol'}</span>
+                  <span className="truncate max-w-[190px] sm:max-w-[280px]">{team?.name || 'Colonia San Luis F.C'}</span>
                   <ChevronDown className={`w-4 h-4 text-emerald-300 transition-transform ${isTeamMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 

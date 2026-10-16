@@ -41,7 +41,7 @@ export const StatsView: React.FC<StatsViewProps> = ({
     'scorers' | 'assists' | 'minutes' | 'substitutions' | 'discipline' | 'matches'
   >('scorers');
 
-  const teamName = team?.name || 'Club San Luis';
+  const teamName = team?.name || 'Colonia San Luis F.C';
 
   // 1. Filtered Matches
   const filteredMatches = useMemo(() => {

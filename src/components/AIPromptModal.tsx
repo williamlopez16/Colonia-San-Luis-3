@@ -102,7 +102,7 @@ export const AIPromptModal: React.FC<AIPromptModalProps> = ({
           <div className="flex items-center gap-2 font-bold truncate">
             <Trophy className="w-3.5 h-3.5 text-purple-600" />
             <span>{match.tournamentName || 'Torneo Oficial'}:</span>
-            <span className="text-emerald-800 font-black">{team?.name || 'Colonia San Luis'}</span>
+            <span className="text-emerald-800 font-black">{team?.name || 'Colonia San Luis F.C'}</span>
             <span className="text-gray-400">vs</span>
             <span className="text-gray-900 font-black">{match.rival}</span>
           </div>

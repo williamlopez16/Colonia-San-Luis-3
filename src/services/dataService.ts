@@ -141,7 +141,7 @@ function notifySync(topic: string) {
 // Initial demo seed data for San Luis, Antioquia
 const INITIAL_TEAM: Team = {
   id: DEFAULT_TEAM_ID,
-  name: 'Colonia de San Luis',
+  name: 'Colonia San Luis F.C',
   category: 'Categoría Libre',
   slogan: 'LA PERLA VERDE DE ANTIOQUIA',
   logoUrl: '/team_logo.png',
@@ -348,6 +348,16 @@ function initializeLocalStorage() {
 initializeLocalStorage();
 
 // Local storage retrieval helpers
+function normalizeTeam(t: Team): Team {
+  if (!t.logoUrl || t.logoUrl.endsWith('.jpg')) {
+    t.logoUrl = '/team_logo.png';
+  }
+  if (!t.name || t.name === 'Colonia de San Luis' || t.name === 'Colonia San Luis' || t.name === 'Mi Equipo de Fútbol') {
+    t.name = 'Colonia San Luis F.C';
+  }
+  return t;
+}
+
 export function getLocalTeams(): Team[] {
   if (typeof window === 'undefined') return [INITIAL_TEAM];
   const raw = localStorage.getItem(STORAGE_KEYS.TEAMS);
@@ -355,12 +365,7 @@ export function getLocalTeams(): Team[] {
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((t: Team) => {
-          if (!t.logoUrl || t.logoUrl.endsWith('.jpg')) {
-            t.logoUrl = '/team_logo.png';
-          }
-          return t;
-        });
+        return parsed.map((t: Team) => normalizeTeam(t));
       }
     } catch {
       // fallback
@@ -385,17 +390,10 @@ function getLocalTeam(): Team {
       const teams: Team[] = JSON.parse(rawTeams);
       const found = teams.find((t) => t.id === activeId);
       if (found) {
-        if (!found.logoUrl || found.logoUrl.endsWith('.jpg')) {
-          found.logoUrl = '/team_logo.png';
-        }
-        return found;
+        return normalizeTeam(found);
       }
       if (teams.length > 0) {
-        const first = teams[0];
-        if (!first.logoUrl || first.logoUrl.endsWith('.jpg')) {
-          first.logoUrl = '/team_logo.png';
-        }
-        return first;
+        return normalizeTeam(teams[0]);
       }
     } catch {}
   }
@@ -404,10 +402,7 @@ function getLocalTeam(): Team {
   if (!raw) return INITIAL_TEAM;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed.logoUrl || parsed.logoUrl.endsWith('.jpg')) {
-      parsed.logoUrl = '/team_logo.png';
-    }
-    return parsed;
+    return normalizeTeam(parsed);
   } catch {
     return INITIAL_TEAM;
   }
@@ -489,11 +484,7 @@ export function subscribeToTeams(callback: (teams: Team[]) => void): Unsubscribe
         (snapshot) => {
           if (!snapshot.empty) {
             const remoteList = snapshot.docs.map((d) => {
-              const data = d.data() as Team;
-              if (!data.logoUrl || data.logoUrl.endsWith('.jpg')) {
-                data.logoUrl = '/team_logo.png';
-              }
-              return data;
+              return normalizeTeam(d.data() as Team);
             });
             localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(remoteList));
             
@@ -562,11 +553,7 @@ export function subscribeToTeam(callback: (team: Team | null) => void): Unsubscr
         (snapshot) => {
           if (!snapshot.empty) {
             const remoteList = snapshot.docs.map((d) => {
-              const data = d.data() as Team;
-              if (!data.logoUrl || data.logoUrl.endsWith('.jpg')) {
-                data.logoUrl = '/team_logo.png';
-              }
-              return data;
+              return normalizeTeam(d.data() as Team);
             });
             localStorage.setItem(STORAGE_KEYS.TEAMS, JSON.stringify(remoteList));
             const activeId = getActiveTeamId();
