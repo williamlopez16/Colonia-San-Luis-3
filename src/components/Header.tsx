@@ -18,7 +18,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-export type AppTab = 'home' | 'matches' | 'players' | 'stats' | 'finance' | 'concepts' | 'team';
+export type AppTab = 'home' | 'matches' | 'tactics' | 'players' | 'stats' | 'finance' | 'concepts' | 'team';
 
 interface HeaderProps {
   team: Team | null;
@@ -289,6 +289,18 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <span>⚽</span>
             <span>Partidos</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('tactics')}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl transition whitespace-nowrap cursor-pointer active:scale-95 ${
+              activeTab === 'tactics'
+                ? 'bg-white text-emerald-950 shadow-xs font-black'
+                : 'text-emerald-100 hover:bg-emerald-700/70 hover:text-white'
+            }`}
+          >
+            <span>📋</span>
+            <span>Pizarra</span>
           </button>
 
           <button

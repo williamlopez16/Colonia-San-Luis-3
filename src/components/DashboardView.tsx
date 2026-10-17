@@ -47,6 +47,7 @@ interface DashboardViewProps {
   onNavigateToTab: (tab: AppTab) => void;
   onOpenAIPrompt?: (match: Match) => void;
   onOpenPostMatch?: (match: Match) => void;
+  onOpenTacticalBoard?: (matchId: string) => void;
   onSelectTeam?: (teamId: string) => void;
 }
 
@@ -65,6 +66,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToTab,
   onOpenAIPrompt,
   onOpenPostMatch,
+  onOpenTacticalBoard,
   onSelectTeam,
 }) => {
   const { isAdminMode } = useAccessMode();
@@ -717,6 +719,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <Users className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
                   <span>Confirmaciones</span>
                 </button>
+
+                {/* Pizarra Táctica */}
+                {onOpenTacticalBoard && (
+                  <button
+                    onClick={() => onOpenTacticalBoard(nextMatch.id)}
+                    className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-xs transition-all cursor-pointer shadow-xs active:scale-98"
+                    title="Pizarra táctica y alineación del partido"
+                  >
+                    <span>📋</span>
+                    <span>Pizarra Táctica</span>
+                  </button>
+                )}
 
                 {/* 4. Estadísticas del Partido */}
                 <button

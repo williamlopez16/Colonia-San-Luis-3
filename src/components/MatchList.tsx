@@ -45,6 +45,7 @@ interface MatchListProps {
   onOpenMatchdayGraphic?: (match: Match) => void;
   onOpenAIPrompt?: (match: Match) => void;
   onOpenPostMatch?: (match: Match) => void;
+  onOpenTacticalBoard?: (matchId: string) => void;
 }
 
 type TabFilter = 'all' | 'scheduled' | 'played';
@@ -100,6 +101,7 @@ export const MatchList: React.FC<MatchListProps> = ({
   onOpenMatchdayGraphic,
   onOpenAIPrompt,
   onOpenPostMatch,
+  onOpenTacticalBoard,
 }) => {
   const { isAdminMode } = useAccessMode();
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -890,6 +892,21 @@ export const MatchList: React.FC<MatchListProps> = ({
                               >
                                 <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
                                 <span>Cartelera Matchday</span>
+                              </button>
+                            )}
+
+                            {/* Botón Pizarra & Alineación */}
+                            {onOpenTacticalBoard && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenTacticalBoard(match.id);
+                                }}
+                                className="px-3 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+                                title="Pizarra táctica y alineación de este partido"
+                              >
+                                <span>📋</span>
+                                <span>Alineación</span>
                               </button>
                             )}
 

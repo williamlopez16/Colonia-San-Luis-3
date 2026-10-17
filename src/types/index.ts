@@ -147,7 +147,54 @@ export interface Match {
   suggestedArrivalTime?: string; // Hora o anticipación sugerida de llegada a la cancha (ej. "18:45" o "45 min antes")
   confirmationDeadline?: string; // Límite de confirmación / Cierre de convocatoria (YYYY-MM-DDTHH:mm o texto descriptivo)
   itemsToBring?: string[]; // Implementos indispensables a recordar (Uniforme completo, Espinilleras, Cédula, Hidratación, etc.)
+  lineup?: TacticalLineup; // Pizarra y alineación táctica asociada a este partido
   createdAt: string;
+  updatedAt: string;
+}
+
+export type TacticalGameFormat = 'Fútbol 11' | 'Fútbol 9' | 'Fútbol 8' | 'Fútbol 7' | 'Fútbol 5';
+export type TacticalPitchStyle = 'grass' | 'dark' | 'simple';
+export type TacticalPitchView = 'full' | 'half';
+export type TacticalRoleCategory = 'POR' | 'DEF' | 'MED' | 'DEL';
+
+export interface TacticalPlayerPosition {
+  playerId: string;
+  fullName: string;
+  jerseyNumber: number;
+  photoUrl?: string;
+  isCaptain?: boolean;
+  role: string; // e.g. "POR", "LD", "DFC", "LI", "MCD", "MC", "MCO", "EI", "ED", "DC"
+  roleCategory: TacticalRoleCategory;
+  x: number; // 0 - 100 percentage
+  y: number; // 0 - 100 percentage
+}
+
+export interface TacticalDrawing {
+  id: string;
+  type: 'arrow' | 'pass' | 'line';
+  points: { x: number; y: number }[];
+  color: string;
+}
+
+export interface TacticalBall {
+  x: number;
+  y: number;
+}
+
+export interface TacticalLineup {
+  id: string;
+  teamId: string;
+  matchId?: string;
+  name: string;
+  gameFormat: TacticalGameFormat;
+  formation: string; // e.g. "4-3-3", "4-4-2", "2-3-1"
+  pitchStyle: TacticalPitchStyle;
+  pitchView: TacticalPitchView;
+  starters: TacticalPlayerPosition[];
+  bench: TacticalPlayerPosition[];
+  ball?: TacticalBall;
+  drawings?: TacticalDrawing[];
+  notes?: string;
   updatedAt: string;
 }
 

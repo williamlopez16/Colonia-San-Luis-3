@@ -39,6 +39,7 @@ import { MatchStatsModal } from './components/MatchStatsModal';
 import { AIPromptModal } from './components/AIPromptModal';
 import { PostMatchModal } from './components/PostMatchModal';
 import { StatsView } from './components/StatsView';
+import { TacticalBoardView } from './components/TacticalBoardView';
 import { OfflineBanner } from './components/OfflineBanner';
 import { FirebaseStatusBanner } from './components/FirebaseStatusBanner';
 
@@ -68,6 +69,7 @@ export default function App() {
   const [postMatchMatch, setPostMatchMatch] = useState<Match | null>(null);
   const [showTeamModal, setShowTeamModal] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [tacticsMatchId, setTacticsMatchId] = useState<string | null>(null);
 
   // Financial modals state (opened from PlayerManagement)
   const [financePlayer, setFinancePlayer] = useState<Player | null>(null);
@@ -225,6 +227,11 @@ export default function App() {
     setEditingMatch(null);
   };
 
+  const handleOpenTacticalBoardForMatch = (matchId: string) => {
+    setTacticsMatchId(matchId);
+    setActiveTab('tactics');
+  };
+
   const handleDeleteMatch = async (matchId: string) => {
     try {
       await deleteMatch(matchId);
@@ -317,6 +324,7 @@ export default function App() {
             onOpenAIPrompt={handleOpenAIPrompt}
             onOpenPostMatch={handleOpenPostMatch}
             onOpenMatchStats={handleOpenMatchStats}
+            onOpenTacticalBoard={handleOpenTacticalBoardForMatch}
             onSelectTeam={handleSelectTeam}
             onNavigateToTab={(tab) => {
               setActiveTab(tab);
@@ -353,6 +361,7 @@ export default function App() {
                 onOpenAIPrompt={() => handleOpenAIPrompt(currentAdminMatch)}
                 onOpenPostMatch={() => handleOpenPostMatch(currentAdminMatch)}
                 onOpenMatchStats={() => setStatsMatchId(currentAdminMatch.id)}
+                onOpenTacticalBoard={() => handleOpenTacticalBoardForMatch(currentAdminMatch.id)}
                 onEditMatch={() => handleStartEditMatch(currentAdminMatch)}
               />
             ) : (
@@ -370,9 +379,21 @@ export default function App() {
                 onOpenMatchdayGraphic={handleOpenMatchdayGraphic}
                 onOpenAIPrompt={handleOpenAIPrompt}
                 onOpenPostMatch={handleOpenPostMatch}
+                onOpenTacticalBoard={handleOpenTacticalBoardForMatch}
               />
             )}
           </>
+        )}
+
+        {/* Tab: Tactical Board & Lineups */}
+        {activeTab === 'tactics' && (
+          <TacticalBoardView
+            team={team}
+            matches={matches}
+            players={players}
+            selectedMatchId={tacticsMatchId}
+            onSelectMatch={(id) => setTacticsMatchId(id)}
+          />
         )}
 
         {/* Tab 2: Players */}

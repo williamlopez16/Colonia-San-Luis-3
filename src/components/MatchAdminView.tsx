@@ -53,6 +53,7 @@ interface MatchAdminViewProps {
   onEditMatch: () => void;
   onOpenAIPrompt?: () => void;
   onOpenPostMatch?: () => void;
+  onOpenTacticalBoard?: () => void;
 }
 
 export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
@@ -64,6 +65,7 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
   onEditMatch,
   onOpenAIPrompt,
   onOpenPostMatch,
+  onOpenTacticalBoard,
 }) => {
   const { isAdminMode } = useAccessMode();
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
@@ -468,6 +470,17 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
                 <span>Copiar Mensaje WhatsApp</span>
               </button>
             </>
+          )}
+
+          {onOpenTacticalBoard && (
+            <button
+              onClick={onOpenTacticalBoard}
+              className="flex items-center justify-center gap-2 py-2.5 px-3.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer"
+              title="Abrir pizarra táctica y armar la alineación del partido"
+            >
+              <span>📋</span>
+              <span>Pizarra & Alineación</span>
+            </button>
           )}
 
           <button
