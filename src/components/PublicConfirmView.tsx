@@ -473,11 +473,17 @@ export const PublicConfirmView: React.FC<PublicConfirmViewProps> = ({
               /* Step 2: Confirmation Buttons ("Sí, confirmo" / "No puedo ir") */
               <div className="space-y-4">
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-emerald-700 text-white font-bold flex items-center justify-center text-xs">
-                      {selectedPlayer?.jerseyNumber}
-                    </span>
-                    <span className="font-bold">{selectedPlayer?.fullName}</span>
+                  <div className="flex items-center gap-2.5">
+                    {selectedPlayer?.photoUrl ? (
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-600 flex-shrink-0 bg-emerald-100 shadow-2xs">
+                        <img src={selectedPlayer.photoUrl} alt={selectedPlayer.fullName} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <span className="w-7 h-7 rounded-full bg-emerald-700 text-white font-bold flex items-center justify-center text-xs">
+                        {selectedPlayer?.jerseyNumber}
+                      </span>
+                    )}
+                    <span className="font-bold text-sm">{selectedPlayer?.fullName}</span>
                   </div>
                   <button
                     onClick={handleResetForm}

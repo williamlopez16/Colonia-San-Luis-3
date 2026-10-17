@@ -376,6 +376,7 @@ export const MatchForm: React.FC<MatchFormProps> = ({
           fullName: p.fullName,
           jerseyNumber: p.jerseyNumber,
           phone: p.phone,
+          photoUrl: p.photoUrl || existingCallup?.photoUrl,
           status: existingCallup ? existingCallup.status : 'Pendiente',
           reason: existingCallup?.reason,
           confirmedAt: existingCallup?.confirmedAt,
@@ -1044,13 +1045,19 @@ export const MatchForm: React.FC<MatchFormProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center flex-shrink-0 ${
-                          isSelected ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700'
-                        }`}
-                      >
-                        {p.jerseyNumber}
-                      </div>
+                      {p.photoUrl ? (
+                        <div className="w-7 h-7 rounded-full overflow-hidden border border-emerald-600 flex-shrink-0 bg-emerald-100 shadow-2xs">
+                          <img src={p.photoUrl} alt={p.fullName} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div
+                          className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          {p.jerseyNumber}
+                        </div>
+                      )}
                       <div className="truncate">
                         <p className="font-semibold text-xs truncate leading-tight">{p.fullName}</p>
                         <p className="text-[10px] text-gray-500">{p.status}</p>

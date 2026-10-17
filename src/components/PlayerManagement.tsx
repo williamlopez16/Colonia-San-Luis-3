@@ -16,7 +16,14 @@ import {
   HeartPulse,
   DollarSign,
   Plus,
+  Camera,
+  Upload,
+  Sparkles,
+  Sliders,
+  Wand2,
+  RefreshCw,
 } from 'lucide-react';
+import { removeBackgroundToWhite } from '../services/imageService';
 
 interface PlayerManagementProps {
   team: Team | null;
@@ -47,21 +54,142 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [fullName, setFullName] = useState<string>('');
   const [jerseyNumber, setJerseyNumber] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
+  const [photoUrl, setPhotoUrl] = useState<string>('');
+  const [rawPhotoUrl, setRawPhotoUrl] = useState<string>('');
+  const [whiteBgEnabled, setWhiteBgEnabled] = useState<boolean>(true); // Activo por defecto según solicitud
+  const [bgTolerance, setBgTolerance] = useState<number>(36);
+  const [isProcessingBg, setIsProcessingBg] = useState<boolean>(false);
   const [idCard, setIdCard] = useState<string>('');
   const [eps, setEps] = useState<string>('');
   const [status, setStatus] = useState<PlayerStatus>('Activo');
   const [isScholarship, setIsScholarship] = useState<boolean>(false);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState<boolean>(false);
 
   // UI feedback
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  const processPhotoWithWhiteBackground = async (sourceDataUrl: string, tol = bgTolerance) => {
+    setIsProcessingBg(true);
+    try {
+      const whiteResult = await removeBackgroundToWhite(sourceDataUrl, { tolerance: tol });
+      setPhotoUrl(whiteResult);
+      setFormError(null);
+    } catch (err) {
+      console.warn('Error processing white background:', err);
+      setPhotoUrl(sourceDataUrl);
+    } finally {
+      setIsProcessingBg(false);
+    }
+  };
+
+  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setFormError('Por favor selecciona un archivo de imagen válido (JPG, PNG, WebP).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('La imagen es demasiado pesada. Elige una menor a 10MB.');
+      return;
+    }
+
+    setIsCompressingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_DIM = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const originalDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+            setRawPhotoUrl(originalDataUrl);
+
+            // Por defecto: Quitar el fondo y poner fondo blanco
+            if (whiteBgEnabled) {
+              await processPhotoWithWhiteBackground(originalDataUrl, bgTolerance);
+            } else {
+              setPhotoUrl(originalDataUrl);
+            }
+            setFormError(null);
+          }
+        } catch (err) {
+          console.warn('Error compressing photo:', err);
+          const raw = event.target?.result as string;
+          setRawPhotoUrl(raw);
+          setPhotoUrl(raw);
+        } finally {
+          setIsCompressingPhoto(false);
+        }
+      };
+      img.onerror = () => {
+        setFormError('No se pudo cargar la imagen seleccionada.');
+        setIsCompressingPhoto(false);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      setFormError('Error al leer el archivo de imagen.');
+      setIsCompressingPhoto(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleToggleWhiteBg = async () => {
+    const nextState = !whiteBgEnabled;
+    setWhiteBgEnabled(nextState);
+    if (!rawPhotoUrl && !photoUrl) return;
+
+    const source = rawPhotoUrl || photoUrl;
+    if (nextState) {
+      await processPhotoWithWhiteBackground(source, bgTolerance);
+    } else {
+      setPhotoUrl(source);
+    }
+  };
+
+  const handleToleranceChange = async (newTol: number) => {
+    setBgTolerance(newTol);
+    if (!whiteBgEnabled) return;
+    const source = rawPhotoUrl || photoUrl;
+    if (source) {
+      await processPhotoWithWhiteBackground(source, newTol);
+    }
+  };
+
   const openCreateModal = () => {
     setEditingPlayer(null);
     setFullName('');
     setJerseyNumber('');
     setPhone('');
+    setPhotoUrl('');
+    setRawPhotoUrl('');
+    setWhiteBgEnabled(true);
+    setBgTolerance(36);
     setIdCard('');
     setEps('');
     setStatus('Activo');
@@ -75,6 +203,10 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setFullName(player.fullName);
     setJerseyNumber(String(player.jerseyNumber));
     setPhone(player.phone);
+    setPhotoUrl(player.photoUrl || '');
+    setRawPhotoUrl(player.photoUrl || '');
+    setWhiteBgEnabled(true);
+    setBgTolerance(36);
     setIdCard(player.idCard || '');
     setEps(player.eps || '');
     setStatus(player.status);
@@ -140,6 +272,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         fullName: trimmedName,
         jerseyNumber: numDorsal,
         phone: trimmedPhone,
+        photoUrl: photoUrl.trim() || undefined,
         idCard: idCard.trim() || '',
         eps: eps.trim() || '',
         status,
@@ -282,9 +415,27 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2.5">
                     <div className="flex items-center gap-3">
-                      {/* Circular Jersey Badge */}
-                      <div className="w-10 h-10 rounded-full bg-emerald-700 text-white font-black text-base flex items-center justify-center shadow-xs flex-shrink-0 border-2 border-emerald-900">
-                        {player.jerseyNumber}
+                      {/* Circular Jersey Badge or Photo Avatar */}
+                      <div className="relative flex-shrink-0">
+                        {player.photoUrl ? (
+                          <div className="relative w-11 h-11 rounded-full overflow-hidden border-2 border-emerald-600 shadow-xs bg-emerald-50">
+                            <img
+                              src={player.photoUrl}
+                              alt={player.fullName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute bottom-0 right-0 bg-emerald-950 text-white font-black text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center border border-white shadow-2xs">
+                              {player.jerseyNumber}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-11 h-11 rounded-full bg-emerald-700 text-white font-black text-base flex items-center justify-center shadow-xs border-2 border-emerald-900">
+                            {player.jerseyNumber}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h3 className="font-bold text-gray-900 text-sm leading-tight">
@@ -447,6 +598,123 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                   <p>{formError}</p>
                 </div>
               )}
+
+              {/* Photo Upload Section con eliminación de fondo blanco por defecto */}
+              <div className="flex flex-col items-center justify-center p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-100/90 space-y-2.5">
+                <div className="relative group">
+                  {photoUrl ? (
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-3 border-emerald-600 shadow-md relative bg-white">
+                      <img
+                        src={photoUrl}
+                        alt="Foto del jugador"
+                        className="w-full h-full object-cover"
+                      />
+                      {isProcessingBg && (
+                        <div className="absolute inset-0 bg-white/80 backdrop-blur-2xs flex flex-col items-center justify-center text-emerald-800 text-[10px] font-bold p-1 text-center">
+                          <RefreshCw className="w-4 h-4 animate-spin text-emerald-600 mb-1" />
+                          <span>Quitando fondo...</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhotoUrl('');
+                          setRawPhotoUrl('');
+                        }}
+                        className="absolute top-0 right-0 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition shadow-xs cursor-pointer"
+                        title="Quitar foto"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="w-20 h-20 rounded-full bg-emerald-100/80 border-2 border-dashed border-emerald-400 hover:border-emerald-600 hover:bg-emerald-200/60 flex flex-col items-center justify-center cursor-pointer transition text-emerald-800 shadow-2xs">
+                      <Camera className="w-6 h-6 text-emerald-700 mb-0.5" />
+                      <span className="text-[10px] font-extrabold text-emerald-800">Subir foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoFileChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div className="text-center w-full">
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs cursor-pointer transition">
+                      <Upload className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{photoUrl ? 'Cambiar foto' : 'Seleccionar foto (Cámara / Galería)'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoFileChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {photoUrl && rawPhotoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleToggleWhiteBg}
+                        disabled={isProcessingBg}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          whiteBgEnabled
+                            ? 'bg-emerald-100 text-emerald-900 border-emerald-400 shadow-2xs'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                        title="Activar o desactivar fondo blanco automático"
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>{whiteBgEnabled ? '✓ Fondo Blanco Activo' : 'Ver Original'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Controles de fondo blanco de estudio por defecto */}
+                  {photoUrl && whiteBgEnabled && (
+                    <div className="mt-2.5 pt-2 border-t border-emerald-200/60 max-w-xs mx-auto text-left space-y-1.5 bg-white/70 p-2.5 rounded-xl border">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-emerald-950">
+                        <span className="flex items-center gap-1">
+                          <Wand2 className="w-3 h-3 text-emerald-600" />
+                          <span>Fondo blanco de estudio (por defecto)</span>
+                        </span>
+                        <span className="text-emerald-700 font-mono text-[10px]">{bgTolerance}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-gray-400">Suave</span>
+                        <input
+                          type="range"
+                          min="18"
+                          max="65"
+                          step="2"
+                          value={bgTolerance}
+                          onChange={(e) => handleToleranceChange(Number(e.target.value))}
+                          disabled={isProcessingBg}
+                          className="w-full accent-emerald-600 h-1.5 bg-emerald-100 rounded-lg cursor-pointer"
+                        />
+                        <span className="text-[9px] text-gray-400">Intenso</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 text-center">
+                        El fondo se elimina automáticamente y se sustituye por blanco puro.
+                      </p>
+                    </div>
+                  )}
+
+                  {isCompressingPhoto && (
+                    <p className="text-[11px] text-emerald-600 font-semibold mt-1 animate-pulse">
+                      Cargando imagen...
+                    </p>
+                  )}
+                  {!photoUrl && (
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Al subir la foto se eliminará el fondo automáticamente y se pondrá fondo blanco.
+                    </p>
+                  )}
+                </div>
+              </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">

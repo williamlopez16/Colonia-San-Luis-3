@@ -39,6 +39,7 @@ export interface Player {
   fullName: string;
   jerseyNumber: number; // Unique dorsal number per team among active players
   phone: string; // Phone / WhatsApp number
+  photoUrl?: string; // Foto de perfil del jugador (base64 optimizada o URL)
   idCard?: string; // Cédula (optional)
   eps?: string; // EPS (optional)
   status: PlayerStatus;
@@ -73,6 +74,7 @@ export interface Callup {
   fullName: string;
   jerseyNumber: number;
   phone: string;
+  photoUrl?: string; // Foto de perfil del jugador convocado
   status: AttendanceStatus;
   reason?: string;
   confirmedAt?: string;

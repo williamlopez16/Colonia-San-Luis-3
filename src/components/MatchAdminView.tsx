@@ -729,9 +729,24 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
                 className="py-3 sm:py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50/60 px-2 rounded-xl transition"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* Circular Badge with Jersey Number */}
-                  <div className="w-9 h-9 rounded-full bg-emerald-700 text-white font-black text-sm flex items-center justify-center flex-shrink-0 border-2 border-emerald-900 shadow-2xs">
-                    {callup.jerseyNumber}
+                  {/* Circular Badge with Jersey Number or Photo */}
+                  <div className="relative flex-shrink-0">
+                    {callup.photoUrl ? (
+                      <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-emerald-600 shadow-2xs bg-emerald-50">
+                        <img
+                          src={callup.photoUrl}
+                          alt={callup.fullName}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-0 right-0 bg-emerald-950 text-white font-black text-[8px] min-w-[14px] h-3.5 px-0.5 rounded-full flex items-center justify-center border border-white">
+                          {callup.jerseyNumber}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-emerald-700 text-white font-black text-sm flex items-center justify-center flex-shrink-0 border-2 border-emerald-900 shadow-2xs">
+                        {callup.jerseyNumber}
+                      </div>
+                    )}
                   </div>
 
                   <div className="min-w-0">

@@ -1046,9 +1046,18 @@ export const MatchList: React.FC<MatchListProps> = ({
                                       className="pt-1.5 first:pt-0 flex items-center justify-between gap-2"
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
-                                        <span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-800 font-black text-[10px] flex items-center justify-center flex-shrink-0 border border-emerald-200">
-                                          {c.jerseyNumber ? `#${c.jerseyNumber}` : '—'}
-                                        </span>
+                                        {c.photoUrl ? (
+                                          <div className="relative w-6 h-6 rounded-full overflow-hidden border border-emerald-600 flex-shrink-0 bg-emerald-100 shadow-2xs">
+                                            <img src={c.photoUrl} alt={c.fullName} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-0 right-0 bg-emerald-950 text-white font-black text-[6px] min-w-[10px] h-2.5 px-0.5 rounded-full flex items-center justify-center border border-white">
+                                              {c.jerseyNumber}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-800 font-black text-[10px] flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                                            {c.jerseyNumber ? `#${c.jerseyNumber}` : '—'}
+                                          </span>
+                                        )}
                                         <span className="font-bold text-gray-900 truncate">
                                           {c.fullName}
                                         </span>

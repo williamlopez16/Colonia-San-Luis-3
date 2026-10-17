@@ -595,9 +595,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               className="pt-1.5 first:pt-0 flex items-center justify-between gap-2 text-xs"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-800 font-black text-[11px] flex items-center justify-center flex-shrink-0 border border-emerald-200">
-                                  {num ? `#${num}` : '—'}
-                                </span>
+                                {c.photoUrl || p?.photoUrl ? (
+                                  <div className="relative w-7 h-7 rounded-full overflow-hidden border border-emerald-600 flex-shrink-0 bg-emerald-100 shadow-2xs">
+                                    <img
+                                      src={c.photoUrl || p?.photoUrl}
+                                      alt={c.fullName || p?.fullName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute bottom-0 right-0 bg-emerald-950 text-white font-black text-[7px] min-w-[12px] h-3 px-0.5 rounded-full flex items-center justify-center border border-white">
+                                      {num}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-800 font-black text-[11px] flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                                    {num ? `#${num}` : '—'}
+                                  </span>
+                                )}
                                 <div className="truncate">
                                   <span className="font-bold text-gray-900 truncate block">
                                     {c.fullName || p?.fullName}

@@ -148,8 +148,23 @@ export const PlayerFinanceModal: React.FC<PlayerFinanceModalProps> = ({
           </button>
 
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-white text-emerald-950 font-black text-xl flex items-center justify-center shadow-md border-2 border-emerald-900">
-              {player.jerseyNumber}
+            <div className="relative flex-shrink-0">
+              {player.photoUrl ? (
+                <div className="w-13 h-13 rounded-2xl overflow-hidden border-2 border-white/80 shadow-md bg-white">
+                  <img
+                    src={player.photoUrl}
+                    alt={player.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-0 right-0 bg-emerald-950 text-white font-black text-[9px] min-w-[18px] h-4 px-1 rounded-full flex items-center justify-center border border-white shadow-2xs">
+                    {player.jerseyNumber}
+                  </div>
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-white text-emerald-950 font-black text-xl flex items-center justify-center shadow-md border-2 border-emerald-900">
+                  {player.jerseyNumber}
+                </div>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
