@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Match, Team } from '../types';
+import type { Match, Team, AttendanceStatus } from '../types';
 import { useAccessMode } from '../context/AccessModeContext';
 import { formatMatchDate, formatDeadline, getConfirmationUrl, copyToClipboard } from '../services/whatsappService';
 import { TeamCrest } from './TeamCrest';
@@ -103,13 +103,27 @@ export const MatchList: React.FC<MatchListProps> = ({
 }) => {
   const { isAdminMode } = useAccessMode();
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const teamName = team?.name || 'Club San Luis';
+  const teamName = team?.name || 'Colonia San Luis F.C';
 
   // Filters & Sorting state
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('smart');
+
+  // Interactive status filter drawer state per match
+  const [expandedStatusByMatch, setExpandedStatusByMatch] = useState<Record<string, AttendanceStatus | null>>({});
+
+  const handleToggleStatusFilter = (e: React.MouseEvent, matchId: string, status: AttendanceStatus) => {
+    e.stopPropagation();
+    setExpandedStatusByMatch((prev) => {
+      const current = prev[matchId];
+      return {
+        ...prev,
+        [matchId]: current === status ? null : status,
+      };
+    });
+  };
 
   // Clipboard copy handler
   const handleCopyLink = async (e: React.MouseEvent, matchId: string) => {
@@ -797,28 +811,64 @@ export const MatchList: React.FC<MatchListProps> = ({
                               />
                             </div>
 
-                            {/* Status Badges Row */}
+                            {/* Status Badges Row (Botones interactivos para ver resumen de jugadores) */}
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {/* Confirmados */}
-                              <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-900 border border-emerald-200/90 px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleStatusFilter(e, match.id, 'Confirmado')}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-black text-xs transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                                  expandedStatusByMatch[match.id] === 'Confirmado'
+                                    ? 'bg-emerald-200 text-emerald-950 border border-emerald-600 ring-2 ring-emerald-500/40'
+                                    : 'bg-emerald-50 text-emerald-900 border border-emerald-200/90 hover:bg-emerald-100 hover:border-emerald-300'
+                                }`}
+                                title="Toca para ver los jugadores confirmados"
+                              >
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                                 <span>{confirmedCount}</span>
                                 <span className="text-[10px] font-bold text-emerald-700">Confirmados</span>
-                              </span>
+                                <span className="text-[9px] font-bold text-emerald-800 ml-0.5">
+                                  {expandedStatusByMatch[match.id] === 'Confirmado' ? '▲' : '▼'}
+                                </span>
+                              </button>
 
                               {/* No Asisten */}
-                              <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-900 border border-rose-200/90 px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleStatusFilter(e, match.id, 'No asiste')}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-black text-xs transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                                  expandedStatusByMatch[match.id] === 'No asiste'
+                                    ? 'bg-rose-200 text-rose-950 border border-rose-600 ring-2 ring-rose-500/40'
+                                    : 'bg-rose-50 text-rose-900 border border-rose-200/90 hover:bg-rose-100 hover:border-rose-300'
+                                }`}
+                                title="Toca para ver los jugadores que no van"
+                              >
                                 <XCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
                                 <span>{declinedCount}</span>
                                 <span className="text-[10px] font-bold text-rose-700">No van</span>
-                              </span>
+                                <span className="text-[9px] font-bold text-rose-800 ml-0.5">
+                                  {expandedStatusByMatch[match.id] === 'No asiste' ? '▲' : '▼'}
+                                </span>
+                              </button>
 
                               {/* Pendientes */}
-                              <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-950 border border-amber-200/90 px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleStatusFilter(e, match.id, 'Pendiente')}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-black text-xs transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                                  expandedStatusByMatch[match.id] === 'Pendiente'
+                                    ? 'bg-amber-200 text-amber-950 border border-amber-600 ring-2 ring-amber-500/40'
+                                    : 'bg-amber-50 text-amber-950 border border-amber-200/90 hover:bg-amber-100 hover:border-amber-300'
+                                }`}
+                                title="Toca para ver los jugadores pendientes"
+                              >
                                 <HelpCircle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
                                 <span>{pendingCount}</span>
                                 <span className="text-[10px] font-bold text-amber-800">Pendientes</span>
-                              </span>
+                                <span className="text-[9px] font-bold text-amber-800 ml-0.5">
+                                  {expandedStatusByMatch[match.id] === 'Pendiente' ? '▲' : '▼'}
+                                </span>
+                              </button>
 
                               <span className="text-[11px] text-gray-500 font-bold ml-1">
                                 / {totalCallups} conv.
@@ -932,6 +982,124 @@ export const MatchList: React.FC<MatchListProps> = ({
                             </div>
                           </div>
                         </div>
+
+                        {/* Expandable filtered players summary for this match */}
+                        {expandedStatusByMatch[match.id] && (() => {
+                          const currentFilter = expandedStatusByMatch[match.id]!;
+                          const filteredList = (match.callups || []).filter((c) => c.status === currentFilter);
+                          return (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-white px-4 sm:px-5 py-3.5 border-t border-gray-200 space-y-2.5 animate-fade-in text-xs"
+                            >
+                              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                  {currentFilter === 'Confirmado' && (
+                                    <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                  {currentFilter === 'No asiste' && (
+                                    <span className="w-5 h-5 rounded-md bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                  {currentFilter === 'Pendiente' && (
+                                    <span className="w-5 h-5 rounded-md bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                                      <HelpCircle className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                  <div>
+                                    <span className="font-extrabold text-xs text-gray-900 block leading-tight">
+                                      {currentFilter === 'Confirmado' && `Jugadores Confirmados (${filteredList.length})`}
+                                      {currentFilter === 'No asiste' && `Jugadores que No Van (${filteredList.length})`}
+                                      {currentFilter === 'Pendiente' && `Jugadores Pendientes (${filteredList.length})`}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">
+                                      {currentFilter === 'Confirmado' && 'Asistirán al partido'}
+                                      {currentFilter === 'No asiste' && 'Reportaron que no asistirán'}
+                                      {currentFilter === 'Pendiente' && 'Aún no han confirmado su asistencia'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedStatusByMatch((prev) => ({ ...prev, [match.id]: null }))
+                                  }
+                                  className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+                                  title="Cerrar resumen"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              {filteredList.length === 0 ? (
+                                <div className="py-3 text-center text-xs text-gray-400 font-medium">
+                                  No hay jugadores en este estado para este partido.
+                                </div>
+                              ) : (
+                                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 divide-y divide-gray-50 no-scrollbar">
+                                   {filteredList.map((c) => (
+                                    <div
+                                      key={c.playerId}
+                                      className="pt-1.5 first:pt-0 flex items-center justify-between gap-2"
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="w-5 h-5 rounded-full bg-emerald-50 text-emerald-800 font-black text-[10px] flex items-center justify-center flex-shrink-0 border border-emerald-200">
+                                          {c.jerseyNumber ? `#${c.jerseyNumber}` : '—'}
+                                        </span>
+                                        <span className="font-bold text-gray-900 truncate">
+                                          {c.fullName}
+                                        </span>
+                                        {c.phone && (
+                                          <span className="text-[10px] text-gray-400 truncate hidden sm:inline">
+                                            ({c.phone})
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        {currentFilter === 'No asiste' && c.reason && (
+                                          <span
+                                            className="text-[10px] font-semibold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md max-w-[150px] truncate"
+                                            title={`Motivo: ${c.reason}`}
+                                          >
+                                            Motivo: {c.reason}
+                                          </span>
+                                        )}
+                                        {currentFilter === 'Confirmado' && (
+                                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
+                                            ✓ Listo
+                                          </span>
+                                        )}
+                                        {currentFilter === 'Pendiente' && (
+                                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                                            ⏳ Por responder
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+                                <span className="text-[11px] text-gray-400">
+                                  {filteredList.length} de {(match.callups || []).length} convocados
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectMatch(match.id)}
+                                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>Gestionar convocatoria completa</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}

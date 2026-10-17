@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <p className="text-[11px] sm:text-xs text-emerald-200 font-bold tracking-wider uppercase">
-                {team?.slogan || 'LA PERLA BONITA DE ANTIOQUIA'}
+                {team?.slogan || 'LA PERLA VERDE DE ANTIOQUIA'}
               </p>
             </div>
 

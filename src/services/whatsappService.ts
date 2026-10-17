@@ -84,7 +84,7 @@ export function generateWhatsAppMessage(team: Team, match: Match): string {
   const lines: string[] = [];
 
   // Team header
-  const teamName = team.name.trim() || 'EQUIPO';
+  const teamName = team?.name?.trim() || 'COLONIA SAN LUIS F.C';
   lines.push(`🟢⚪ ${teamName.toUpperCase()} ⚪🟢`);
   lines.push('');
 
