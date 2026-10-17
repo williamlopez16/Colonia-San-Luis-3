@@ -19,6 +19,7 @@ import {
   formatLineupWhatsAppMessage,
   renderTacticalLineupToCanvas,
   formatFirstAndLastName,
+  downloadTacticalCanvasPng,
 } from '../services/tacticalService';
 import { saveMatch } from '../services/dataService';
 import { copyToClipboard, formatMatchDate } from '../services/whatsappService';
@@ -39,6 +40,7 @@ import {
   Sparkles,
   ArrowRight,
   Maximize2,
+  Minimize2,
   Trophy,
   Calendar,
   Clock,
@@ -138,16 +140,62 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isSavedSuccess, setIsSavedSuccess] = useState<boolean>(false);
+  const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
   const [copiedWhatsApp, setCopiedWhatsApp] = useState<boolean>(false);
   const [showRolePicker, setShowRolePicker] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  // References for drag and drawing
+  // References for drag, drawing, and fullscreen
+  const containerRef = useRef<HTMLDivElement>(null);
   const pitchRef = useRef<HTMLDivElement>(null);
   const canvasExportRef = useRef<HTMLCanvasElement>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const draggingItemIdRef = useRef<'ball' | string | null>(null);
   const currentDrawingPointsRef = useRef<{ x: number; y: number }[]>([]);
   const [currentTempPath, setCurrentTempPath] = useState<string | null>(null);
+
+  const handleToggleFullscreen = () => {
+    if (!isFullscreen) {
+      try {
+        if (containerRef.current?.requestFullscreen) {
+          containerRef.current.requestFullscreen().catch(() => {});
+        }
+      } catch {
+        // fallback
+      }
+      setIsFullscreen(true);
+    } else {
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      } catch {
+        // fallback
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Available Presets for the current format
   const currentPresets = useMemo(() => {
@@ -495,14 +543,15 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
     }
   }, [isExportModalOpen, team, activeMatch, lineup]);
 
-  // Download Canvas as PNG
+  // Download Canvas as PNG with guaranteed render & Blob handling
   const handleDownloadCanvasPng = async () => {
     const canvas = canvasExportRef.current;
     if (!canvas) return;
 
     try {
-      // Ensure canvas is populated
-      if (canvas.width === 0 || canvas.height === 0) {
+      setIsExporting(true);
+      // Ensure canvas is populated with official dimensions
+      if (canvas.width < 1000 || canvas.height < 1000) {
         await renderTacticalLineupToCanvas(canvas, {
           team,
           match: activeMatch,
@@ -510,16 +559,17 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
         });
       }
 
-      const dataUrl = canvas.toDataURL('image/png', 0.95);
-      const link = document.createElement('a');
       const safeMatchName = activeMatch ? `vs_${activeMatch.rival.replace(/\s+/g, '_')}` : 'Colonia_San_Luis';
-      link.download = `Alineacion_${safeMatchName}_${lineup.formation}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const filename = `Alineacion_${safeMatchName}_${lineup.formation}.png`;
+      const ok = await downloadTacticalCanvasPng(canvas, filename);
+      if (ok) {
+        setDownloadSuccess(true);
+        setTimeout(() => setDownloadSuccess(false), 3000);
+      }
     } catch (err) {
       console.error('Error downloading canvas PNG:', err);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -528,12 +578,14 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
     const canvas = canvasExportRef.current;
     if (!canvas) return;
     try {
-      if (canvas.width === 0 || canvas.height === 0) {
+      setIsExporting(true);
+      if (canvas.width < 1000 || canvas.height < 1000) {
         await renderTacticalLineupToCanvas(canvas, { team, match: activeMatch, lineup });
       }
 
       canvas.toBlob(async (blob) => {
-        if (!blob) {
+        setIsExporting(false);
+        if (!blob || blob.size < 1000) {
           handleDownloadCanvasPng();
           return;
         }
@@ -549,6 +601,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
         }
       }, 'image/png', 0.95);
     } catch {
+      setIsExporting(false);
       handleDownloadCanvasPng();
     }
   };
@@ -614,9 +667,28 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-2 sm:px-4 py-4 space-y-4 animate-fade-in text-gray-900 pb-20">
+    <div
+      ref={containerRef}
+      className={`w-full mx-auto px-2 sm:px-4 py-4 space-y-4 animate-fade-in transition-all ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 bg-slate-950 text-white overflow-y-auto max-w-none pb-12'
+          : 'max-w-6xl text-gray-900 pb-20'
+      }`}
+    >
+      {/* Floating Exit Fullscreen Button */}
+      {isFullscreen && (
+        <button
+          type="button"
+          onClick={handleToggleFullscreen}
+          className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900/90 text-amber-300 border border-amber-400/50 shadow-2xl backdrop-blur-md font-bold text-xs hover:bg-slate-800 cursor-pointer active:scale-95 transition"
+        >
+          <Minimize2 className="w-4 h-4" />
+          <span>Salir Pantalla Completa (Esc)</span>
+        </button>
+      )}
+
       {/* 1. Header Control Bar */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-gray-900">
         {/* Left: Match Selector & Title */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
@@ -661,6 +733,21 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
 
         {/* Right: Primary Action Buttons */}
         <div className="flex items-center flex-wrap gap-2 justify-end">
+          {/* Fullscreen Button */}
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition cursor-pointer active:scale-95 shadow-xs ${
+              isFullscreen
+                ? 'bg-amber-400 hover:bg-amber-500 text-slate-950 ring-2 ring-amber-300'
+                : 'bg-slate-900 hover:bg-black text-white'
+            }`}
+            title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Ver pizarra en pantalla completa'}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4 text-slate-950" /> : <Maximize2 className="w-4 h-4 text-emerald-400" />}
+            <span>{isFullscreen ? 'Salir Pantalla Completa' : 'Pantalla Completa'}</span>
+          </button>
+
           {/* Save Button */}
           <button
             type="button"
@@ -747,28 +834,45 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
           </button>
         </div>
 
-        {/* Board Mode Toggle: Move vs Draw */}
-        <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setBoardMode('move')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
-              boardMode === 'move' ? 'bg-white text-emerald-950 shadow-xs' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Move className="w-3.5 h-3.5" />
-            <span>Fichas</span>
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Board Mode Toggle: Move vs Draw */}
+          <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setBoardMode('move')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                boardMode === 'move' ? 'bg-white text-emerald-950 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Move className="w-3.5 h-3.5" />
+              <span>Fichas</span>
+            </button>
 
+            <button
+              type="button"
+              onClick={() => setBoardMode('draw')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                boardMode === 'draw' ? 'bg-white text-emerald-950 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              <span>Pizarra</span>
+            </button>
+          </div>
+
+          {/* Quick Fullscreen Button */}
           <button
             type="button"
-            onClick={() => setBoardMode('draw')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
-              boardMode === 'draw' ? 'bg-white text-emerald-950 shadow-xs' : 'text-gray-600 hover:text-gray-900'
+            onClick={handleToggleFullscreen}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+              isFullscreen
+                ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
             }`}
+            title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Ver pizarra en pantalla completa'}
           >
-            <PenTool className="w-3.5 h-3.5" />
-            <span>Pizarra</span>
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-slate-950" /> : <Maximize2 className="w-3.5 h-3.5 text-emerald-700" />}
+            <span className="hidden sm:inline">{isFullscreen ? 'Salir' : 'Pantalla Completa'}</span>
           </button>
         </div>
       </div>
@@ -862,7 +966,9 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
             onPointerDown={handlePitchPointerDown}
             onPointerMove={handlePitchPointerMove}
             onPointerUp={handlePitchPointerUp}
-            className="relative w-full aspect-[1/1.38] max-w-[560px] mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 border-emerald-900 select-none touch-none cursor-crosshair bg-emerald-900"
+            className={`relative w-full aspect-[1/1.38] mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 border-emerald-900 select-none touch-none cursor-crosshair bg-emerald-900 transition-all ${
+              isFullscreen ? 'max-w-[700px]' : 'max-w-[560px]'
+            }`}
             style={{
               backgroundImage: `repeating-linear-gradient(0deg, #15803d, #15803d 38px, #166534 38px, #166534 76px)`,
             }}
@@ -967,18 +1073,18 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
                 >
                   {/* Circular Token - Enlarged for touch accessibility and prominence */}
                   <div
-                    className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center shadow-xl border-2 transition-all ${
+                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl border-3 transition-all ${
                       isSwapSource
                         ? 'ring-4 ring-amber-400 border-white bg-amber-600 animate-pulse scale-105'
                         : isSelected
                         ? 'ring-4 ring-yellow-400 border-white scale-105'
-                        : 'border-white/90'
+                        : 'border-white/95'
                     } ${
                       isEmpty
-                        ? 'bg-emerald-950/70 border-dashed border-emerald-300/80 text-emerald-200'
+                        ? 'bg-emerald-950/80 border-dashed border-emerald-300 text-emerald-200'
                         : isGK
-                        ? 'bg-amber-500 text-amber-950 font-black'
-                        : 'bg-emerald-800 text-white font-black'
+                        ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-amber-950 font-black'
+                        : 'bg-gradient-to-br from-emerald-700 to-emerald-900 text-white font-black'
                     }`}
                   >
                     {/* Player Photo or Big Jersey Number */}
@@ -991,7 +1097,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
                         />
                         {/* Mini dorsal badge */}
                         <div
-                          className={`absolute -bottom-1 -right-1 w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full text-[10px] sm:text-xs font-black flex items-center justify-center border-2 border-white shadow-xs ${
+                          className={`absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[11px] sm:text-xs font-black flex items-center justify-center border-2 border-white shadow-md ${
                             isGK ? 'bg-amber-400 text-amber-950' : 'bg-emerald-700 text-white'
                           }`}
                         >
@@ -999,26 +1105,26 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <span className="text-base sm:text-lg font-black tracking-tight">
+                      <span className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-md">
                         {isEmpty ? '?' : player.jerseyNumber}
                       </span>
                     )}
 
                     {/* Captain Armband Badge */}
                     {player.isCaptain && !isEmpty && (
-                      <div className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] flex items-center justify-center border-2 border-white shadow-xs">
+                      <div className="absolute -top-1.5 -left-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-400 text-amber-950 font-black text-xs flex items-center justify-center border-2 border-white shadow-md">
                         C
                       </div>
                     )}
                   </div>
 
-                  {/* Player Name Pill (Primer Nombre y Primer Apellido bien legible) */}
+                  {/* Player Name Pill (Primer Nombre y Primer Apellido bien visible) */}
                   <div className="mt-1 flex flex-col items-center pointer-events-none">
                     <span
-                      className={`px-2 py-0.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-black max-w-[115px] sm:max-w-[135px] truncate shadow-md text-center border leading-tight tracking-tight ${
+                      className={`px-3 py-1 sm:py-1.5 rounded-xl text-xs sm:text-[13px] font-black max-w-[145px] sm:max-w-[175px] truncate shadow-2xl text-center border-2 leading-tight tracking-tight ${
                         isSelected
-                          ? 'bg-yellow-400 text-yellow-950 border-yellow-200 ring-2 ring-yellow-400/50'
-                          : 'bg-slate-950/90 text-white border-black/40 drop-shadow-md'
+                          ? 'bg-yellow-400 text-yellow-950 border-yellow-200 ring-2 ring-yellow-400/80 shadow-2xl'
+                          : 'bg-slate-950/95 text-white border-emerald-400/80 shadow-2xl shadow-black/80'
                       }`}
                       title={player.fullName}
                     >
@@ -1026,8 +1132,8 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
                     </span>
 
                     <span
-                      className={`text-[9.5px] sm:text-[10.5px] font-black tracking-wider uppercase drop-shadow-md px-1 rounded ${
-                        isGK ? 'text-yellow-300' : 'text-emerald-200'
+                      className={`mt-0.5 text-[10px] sm:text-xs font-black tracking-wider uppercase px-2 py-0.5 rounded-md drop-shadow-md ${
+                        isGK ? 'bg-amber-400 text-amber-950 font-black' : 'bg-emerald-900 text-emerald-200 border border-emerald-500/40'
                       }`}
                     >
                       {player.role}
@@ -1342,11 +1448,21 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
 
                 <button
                   type="button"
+                  disabled={isExporting}
                   onClick={handleDownloadCanvasPng}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black shadow-md cursor-pointer transition active:scale-95"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 text-white text-xs font-black shadow-md cursor-pointer transition active:scale-95"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Descargar Imagen PNG</span>
+                  {downloadSuccess ? (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>¡Descargada con éxito!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      <span>Descargar Imagen PNG</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

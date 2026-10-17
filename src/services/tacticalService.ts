@@ -660,43 +660,60 @@ function safeRoundRect(
   h: number,
   r: number
 ) {
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2));
   if (typeof (ctx as unknown as { roundRect?: Function }).roundRect === 'function') {
-    ctx.roundRect(x, y, w, h, r);
-  } else {
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y, x + w, y + r, r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x, y + h, x, y + h - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
+    try {
+      ctx.roundRect(x, y, w, h, radius);
+      return;
+    } catch {
+      // fallback
+    }
   }
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + w - radius, y);
+  ctx.arcTo(x + w, y, x + w, y + radius, radius);
+  ctx.lineTo(x + w, y + h - radius);
+  ctx.arcTo(x + w, y + h, x + w - radius, y + h, radius);
+  ctx.lineTo(x + radius, y + h);
+  ctx.arcTo(x, y + h, x, y + h - radius, radius);
+  ctx.lineTo(x, y + radius);
+  ctx.arcTo(x, y, x + radius, y, radius);
+  ctx.closePath();
 }
 
 /**
  * Loads an image from URL/Base64 with safe error handling and CORS support.
+ * Guaranteed never to hang (1200ms timeout) and never to taint canvas.
  */
 function loadImageSafe(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     if (!src) return resolve(null);
+    let resolved = false;
+    const safeResolve = (val: HTMLImageElement | null) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(val);
+      }
+    };
+
+    // Strict 1200ms timeout so canvas rendering never hangs
+    const timer = setTimeout(() => {
+      safeResolve(null);
+    }, 1200);
+
     const img = new Image();
     // Only set crossOrigin for remote http(s) URLs, never for data: or blob:
     if (src.startsWith('http://') || src.startsWith('https://')) {
       img.crossOrigin = 'anonymous';
     }
-    img.onload = () => resolve(img);
+    img.onload = () => {
+      clearTimeout(timer);
+      safeResolve(img);
+    };
     img.onerror = () => {
-      // Fallback: try loading without crossOrigin if remote CORS failed
-      if (img.crossOrigin) {
-        const retryImg = new Image();
-        retryImg.onload = () => resolve(retryImg);
-        retryImg.onerror = () => resolve(null);
-        retryImg.src = src;
-      } else {
-        resolve(null);
-      }
+      clearTimeout(timer);
+      // DO NOT retry without crossOrigin: an untainted canvas is strictly required for export
+      safeResolve(null);
     };
     img.src = src;
   });
@@ -752,8 +769,17 @@ export async function renderTacticalLineupToCanvas(
   const teamName = (team?.name || 'COLONIA SAN LUIS F.C').toUpperCase();
   const slogan = (team?.slogan || 'LA PERLA VERDE DE ANTIOQUIA').toUpperCase();
 
-  // Load Team Crest
-  const crestImg = await loadImageSafe(team?.logoUrl || '/team_logo.png');
+  // Load Team Crest (try remote logo, fall back to local assets)
+  let crestImg: HTMLImageElement | null = null;
+  if (team?.logoUrl) {
+    crestImg = await loadImageSafe(team.logoUrl);
+  }
+  if (!crestImg) {
+    crestImg = await loadImageSafe('/team_logo.png');
+  }
+  if (!crestImg) {
+    crestImg = await loadImageSafe('/logo.png');
+  }
 
   // Top header card with glass effect
   ctx.save();
@@ -769,10 +795,33 @@ export async function renderTacticalLineupToCanvas(
   // Crest in header
   if (crestImg) {
     ctx.drawImage(crestImg, 65, 52, 130, 130);
+  } else {
+    // Vector shield fallback if image not found
+    ctx.save();
+    ctx.translate(130, 117);
+    ctx.beginPath();
+    ctx.moveTo(0, -55);
+    ctx.lineTo(48, -40);
+    ctx.lineTo(48, 20);
+    ctx.quadraticCurveTo(0, 60, 0, 60);
+    ctx.quadraticCurveTo(0, 60, -48, 20);
+    ctx.lineTo(-48, -40);
+    ctx.closePath();
+    ctx.fillStyle = '#047857';
+    ctx.fill();
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = '#facc15';
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 22px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('CSL', 0, 0);
+    ctx.restore();
   }
 
   // Header Titles
-  const textX = crestImg ? 220 : 65;
+  const textX = 220;
   ctx.fillStyle = '#ffffff';
   ctx.font = '900 36px system-ui, -apple-system, sans-serif';
   ctx.fillText(teamName, textX, 90);
@@ -787,6 +836,16 @@ export async function renderTacticalLineupToCanvas(
   let subtitle = `ALINEACIÓN OFICIAL • SISTEMA ${lineup.formation}`;
   if (match) {
     subtitle = `VS ${match.rival.toUpperCase()} • SISTEMA ${lineup.formation} (${lineup.gameFormat})`;
+  }
+  ctx.fillStyle = '#fef08a'; // yellow-200
+  ctx.font = '800 20px system-ui, -apple-system, sans-serif';
+  ctx.fillText(subtitle, textX, 155);
+
+  if (match) {
+    const matchDetails = `📅 ${formatMatchDate(match.date)} • ⏰ ${match.time} • 📍 ${match.location || 'Por definir'}`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.font = '600 15px system-ui, -apple-system, sans-serif';
+    ctx.fillText(matchDetails, textX, 182);
   }
   ctx.fillStyle = '#fef08a'; // yellow-200
   ctx.font = '800 20px system-ui, -apple-system, sans-serif';
@@ -1084,19 +1143,19 @@ export async function renderTacticalLineupToCanvas(
 
     // Player Name Pill (Primer Nombre y Primer Apellido bien visible)
     const displayName = formatFirstAndLastName(player.fullName);
-    ctx.font = '900 15px system-ui, -apple-system, sans-serif';
+    ctx.font = '900 17px system-ui, -apple-system, sans-serif';
     const textWidth = ctx.measureText(displayName).width;
-    const pillW = Math.max(textWidth + 28, 96);
-    const pillH = 26;
+    const pillW = Math.max(textWidth + 34, 115);
+    const pillH = 30;
     const pillY = py + tokenRadius + 7;
 
     // Pill background
-    ctx.fillStyle = 'rgba(3, 18, 10, 0.92)';
+    ctx.fillStyle = 'rgba(2, 10, 6, 0.95)';
     ctx.beginPath();
     safeRoundRect(ctx, px - pillW / 2, pillY, pillW, pillH, 8);
     ctx.fill();
     ctx.strokeStyle = ringColor;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     // Name text
@@ -1107,8 +1166,8 @@ export async function renderTacticalLineupToCanvas(
 
     // Role badge underneath pill
     ctx.fillStyle = isGK ? '#fef08a' : '#a7f3d0';
-    ctx.font = '900 11px system-ui, -apple-system, sans-serif';
-    ctx.fillText(player.role.toUpperCase(), px, pillY + pillH + 9);
+    ctx.font = '900 12px system-ui, -apple-system, sans-serif';
+    ctx.fillText(player.role.toUpperCase(), px, pillY + pillH + 11);
 
     ctx.restore();
   });
@@ -1193,8 +1252,16 @@ const COMPOUND_FIRST_NAMES = new Set([
   'felipe', 'david', 'eduardo', 'fernando', 'manuel', 'antonio',
   'alberto', 'alejandro', 'guillermo', 'alexander', 'esteban',
   'camilo', 'sebastian', 'sebastián', 'luis', 'miguel', 'juan',
-  'jorge', 'daniel', 'diego', 'cristian', 'victor', 'víctor'
+  'jorge', 'daniel', 'diego', 'cristian', 'victor', 'víctor',
+  'pablo', 'mario', 'javier', 'julian', 'julián', 'gustavo',
+  'alvaro', 'álvaro', 'angel', 'ángel', 'arturo', 'stiven',
+  'steven', 'santiago', 'ricardo', 'leonardo', 'gabriel', 'brayan'
 ]);
+
+function toCleanTitle(str: string): string {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
 
 /**
  * Formats full name to cleanly display One First Name and One Last Name.
@@ -1202,25 +1269,30 @@ const COMPOUND_FIRST_NAMES = new Set([
  * "Carlos Ruiz" -> "Carlos Ruiz"
  * "Mateo Londoño Mejía" -> "Mateo Londoño"
  * "Pipe Buho" -> "Pipe Buho"
+ * "BRAYAN STIVEN GOMEZ" -> "Brayan Gómez"
  */
 export function formatFirstAndLastName(fullName: string): string {
   if (!fullName) return '';
   const trimmed = fullName.trim();
   if (trimmed.startsWith('Vacante')) return trimmed;
   const parts = trimmed.split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return parts[0] || '';
-  if (parts.length === 2) return `${parts[0]} ${parts[1]}`;
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return toCleanTitle(parts[0]);
+  if (parts.length === 2) return `${toCleanTitle(parts[0])} ${toCleanTitle(parts[1])}`;
 
-  // If 3 parts: e.g. "Juan Carlos Pérez" (2 names, 1 surname) vs "Mateo Londoño Mejía" (1 name, 2 surnames)
-  if (parts.length === 3) {
-    if (COMPOUND_FIRST_NAMES.has(parts[1].toLowerCase())) {
-      return `${parts[0]} ${parts[2]}`;
-    }
-    return `${parts[0]} ${parts[1]}`;
+  const first = toCleanTitle(parts[0]);
+  const secondLower = parts[1].toLowerCase();
+
+  // If 2nd word is a known compound first name (e.g., "Juan Carlos Pérez"),
+  // pick the 3rd word as surname
+  if (COMPOUND_FIRST_NAMES.has(secondLower)) {
+    const surname = parts[2] ? toCleanTitle(parts[2]) : toCleanTitle(parts[1]);
+    return `${first} ${surname}`;
   }
 
-  // 4 parts or more: e.g. "Juan Carlos Pérez Gómez" -> "Juan Pérez"
-  return `${parts[0]} ${parts[2]}`;
+  // If 2nd word is already the surname (e.g., "Mateo Londoño Mejía"),
+  // pick the 2nd word as surname
+  return `${first} ${toCleanTitle(parts[1])}`;
 }
 
 /**
@@ -1228,4 +1300,58 @@ export function formatFirstAndLastName(fullName: string): string {
  */
 export function getShortPlayerName(fullName: string, _maxLen = 22): string {
   return formatFirstAndLastName(fullName);
+}
+
+/**
+ * Robust canvas download helper using Blob & ObjectURL with reliable fallback.
+ * Prevents blank image downloads and handles high-resolution canvas seamlessly.
+ */
+export async function downloadTacticalCanvasPng(
+  canvas: HTMLCanvasElement,
+  filename: string
+): Promise<boolean> {
+  if (!canvas) return false;
+
+  try {
+    const blobPromise = new Promise<Blob | null>((resolve) => {
+      try {
+        canvas.toBlob((b) => resolve(b), 'image/png', 0.95);
+      } catch {
+        resolve(null);
+      }
+    });
+
+    const blob = await blobPromise;
+    if (blob && blob.size > 1000) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 1000);
+      return true;
+    }
+
+    // Direct DataURL fallback
+    const dataUrl = canvas.toDataURL('image/png', 0.95);
+    if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 1000) {
+      throw new Error('Canvas data URL is empty');
+    }
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+    }, 200);
+    return true;
+  } catch (err) {
+    console.error('Error downloading tactical canvas:', err);
+    return false;
+  }
 }
