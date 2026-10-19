@@ -729,9 +729,11 @@ export async function renderTacticalLineupToCanvas(
     team: Team | null;
     match?: Match | null;
     lineup: TacticalLineup;
+    kitStyle?: 'home' | 'away' | 'third';
+    playerScale?: number;
   }
 ): Promise<void> {
-  const { team, match, lineup } = params;
+  const { team, match, lineup, kitStyle = 'home', playerScale = 1.0 } = params;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -836,16 +838,6 @@ export async function renderTacticalLineupToCanvas(
   let subtitle = `ALINEACIÓN OFICIAL • SISTEMA ${lineup.formation}`;
   if (match) {
     subtitle = `VS ${match.rival.toUpperCase()} • SISTEMA ${lineup.formation} (${lineup.gameFormat})`;
-  }
-  ctx.fillStyle = '#fef08a'; // yellow-200
-  ctx.font = '800 20px system-ui, -apple-system, sans-serif';
-  ctx.fillText(subtitle, textX, 155);
-
-  if (match) {
-    const matchDetails = `📅 ${formatMatchDate(match.date)} • ⏰ ${match.time} • 📍 ${match.location || 'Por definir'}`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-    ctx.font = '600 15px system-ui, -apple-system, sans-serif';
-    ctx.fillText(matchDetails, textX, 182);
   }
   ctx.fillStyle = '#fef08a'; // yellow-200
   ctx.font = '800 20px system-ui, -apple-system, sans-serif';
@@ -1059,7 +1051,27 @@ export async function renderTacticalLineupToCanvas(
   );
 
   // 6. Draw Player Tokens on Field
-  const tokenRadius = 38;
+  // Proportional token sizing that scales according to game format and active starter count,
+  // filling the pitch with impact, grandeur and television broadcast aesthetics.
+  const activeStarters = lineup.starters.filter((p) => !p.playerId.startsWith('empty_'));
+  const starterCount = activeStarters.length || 11;
+
+  let tokenRadius = 52; // F11 baseline (larger & broadcast style)
+  if (starterCount <= 5) {
+    tokenRadius = 78; // F5 (diameter 156px) - fills the open pitch grandly
+  } else if (starterCount <= 7) {
+    tokenRadius = 68; // F7 (diameter 136px)
+  } else if (starterCount <= 8) {
+    tokenRadius = 62; // F8 (diameter 124px)
+  } else if (starterCount <= 9) {
+    tokenRadius = 57; // F9 (diameter 114px)
+  } else {
+    tokenRadius = 52; // F11 (diameter 104px)
+  }
+
+  if (playerScale && playerScale > 0) {
+    tokenRadius = Math.round(tokenRadius * playerScale);
+  }
 
   lineup.starters.forEach((player) => {
     if (player.playerId.startsWith('empty_')) return;
@@ -1069,93 +1081,328 @@ export async function renderTacticalLineupToCanvas(
     const isGK = player.roleCategory === 'POR' || player.role === 'POR';
 
     ctx.save();
-    // Drop shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-    ctx.shadowBlur = 16;
-    ctx.shadowOffsetY = 7;
+    // 3D Drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = Math.round(tokenRadius * 0.45);
+    ctx.shadowOffsetY = Math.round(tokenRadius * 0.18);
 
-    // Outer ring
-    const ringColor = isGK ? '#facc15' : '#10b981'; // yellow for GK, emerald for outfield
-    ctx.fillStyle = ringColor;
-    ctx.beginPath();
-    ctx.arc(px, py, tokenRadius + 3.5, 0, Math.PI * 2);
+    const ringColor = isGK
+      ? '#facc15'
+      : kitStyle === 'away'
+      ? '#10b981'
+      : kitStyle === 'third'
+      ? '#f59e0b'
+      : '#34d399'; // border ring accent
+    const jw = tokenRadius * 2.25;
+    const jh = tokenRadius * 2.0;
+
+    ctx.save();
+
+    // 1. Drop shadow for 3D jersey depth
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 22;
+    ctx.shadowOffsetY = 10;
+
+    // Transform to draw vector jersey based on 64x58 grid
+    ctx.save();
+    ctx.translate(px - jw / 2, py - jh / 2);
+    const sx = jw / 64;
+    const sy = jh / 58;
+    ctx.scale(sx, sy);
+
+    const defineJerseyPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(22, 5);
+      ctx.quadraticCurveTo(32, 11, 42, 5);
+      ctx.lineTo(53, 10);
+      ctx.lineTo(63, 23);
+      ctx.lineTo(54, 29);
+      ctx.lineTo(47, 21);
+      ctx.lineTo(46, 52);
+      ctx.quadraticCurveTo(32, 55, 18, 52);
+      ctx.lineTo(17, 21);
+      ctx.lineTo(10, 29);
+      ctx.lineTo(1, 23);
+      ctx.lineTo(11, 10);
+      ctx.closePath();
+    };
+
+    // Fill Base Jersey
+    defineJerseyPath();
+    const grad = ctx.createLinearGradient(0, 0, 0, 58);
+    if (isGK) {
+      // Sol Radiante de San Luis (Golden Amber)
+      grad.addColorStop(0, '#fef08a');
+      grad.addColorStop(0.45, '#fbbf24');
+      grad.addColorStop(1, '#d97706');
+    } else if (kitStyle === 'away') {
+      // Blanco Antioquia con vivos San Luis
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.6, '#f8fafc');
+      grad.addColorStop(1, '#e2e8f0');
+    } else if (kitStyle === 'third') {
+      // Azul Río Dormilón / Samaná Norte
+      grad.addColorStop(0, '#0284c7');
+      grad.addColorStop(0.5, '#0369a1');
+      grad.addColorStop(1, '#075985');
+    } else {
+      // Home: Verde Esmeralda (Perla Verde del Oriente)
+      grad.addColorStop(0, '#059669');
+      grad.addColorStop(0.5, '#047857');
+      grad.addColorStop(1, '#064e3b');
+    }
+    ctx.fillStyle = grad;
     ctx.fill();
 
-    // Inner token background
+    // Reset shadow for details inside jersey
+    ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
-    ctx.fillStyle = isGK ? '#854d0e' : '#047857';
-    ctx.beginPath();
-    ctx.arc(px, py, tokenRadius, 0, Math.PI * 2);
-    ctx.fill();
 
-    // Player photo or jersey number
+    // Stripes and Official San Luis Flag Graphics
+    if (!isGK) {
+      ctx.save();
+      defineJerseyPath();
+      ctx.clip();
+
+      if (kitStyle === 'away') {
+        // Double vertical stripe: Verde Antioquia & Azul Río San Luis
+        ctx.fillStyle = 'rgba(4, 120, 87, 0.92)';
+        ctx.fillRect(22, 0, 9, 58);
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.92)';
+        ctx.fillRect(33, 0, 9, 58);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(31, 0, 2, 58);
+        // Flank accents
+        ctx.fillStyle = 'rgba(4, 120, 87, 0.25)';
+        ctx.fillRect(16, 0, 3, 58);
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.25)';
+        ctx.fillRect(45, 0, 3, 58);
+
+        // Mini Golden Sun of San Luis
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(32, 18, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      } else if (kitStyle === 'third') {
+        // Azul Río Dormilón with Emerald flanks & Golden accents
+        ctx.fillStyle = 'rgba(5, 150, 105, 0.9)';
+        ctx.fillRect(18, 0, 5, 58);
+        ctx.fillRect(41, 0, 5, 58);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(23, 0, 1.5, 58);
+        ctx.fillRect(39.5, 0, 1.5, 58);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+        ctx.fillRect(26, 0, 12, 58);
+
+        // Radiant Sun
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(32, 18, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      } else {
+        // Home: Bandera de San Luis (Verde - Azul Río central - Sol Dorado)
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.95)';
+        ctx.fillRect(22, 0, 20, 58);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(20.5, 0, 1.5, 58);
+        ctx.fillRect(42, 0, 1.5, 58);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fillRect(23.5, 0, 1, 58);
+        ctx.fillRect(39.5, 0, 1, 58);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        ctx.fillRect(15, 0, 4, 58);
+        ctx.fillRect(45, 0, 4, 58);
+
+        // Radiant Golden Sun Emblem of San Luis
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(32, 18, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 0.9;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(32, 13.2); ctx.lineTo(32, 14.5);
+        ctx.moveTo(32, 21.5); ctx.lineTo(32, 22.8);
+        ctx.moveTo(27.2, 18); ctx.lineTo(28.5, 18);
+        ctx.moveTo(35.5, 18); ctx.lineTo(36.8, 18);
+        ctx.moveTo(28.6, 14.6); ctx.lineTo(29.5, 15.5);
+        ctx.moveTo(34.5, 20.5); ctx.lineTo(35.4, 21.4);
+        ctx.moveTo(28.6, 21.4); ctx.lineTo(29.5, 20.5);
+        ctx.moveTo(34.5, 15.5); ctx.lineTo(35.4, 14.6);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Goalkeeper shoulder accents (Verde Esmeralda & Azul Río)
+    if (isGK) {
+      ctx.save();
+      defineJerseyPath();
+      ctx.clip();
+      // Left Shoulder (Verde Esmeralda)
+      ctx.fillStyle = 'rgba(4, 120, 87, 0.85)';
+      ctx.beginPath();
+      ctx.moveTo(11, 10);
+      ctx.lineTo(22, 5);
+      ctx.lineTo(20, 13);
+      ctx.lineTo(10, 16);
+      ctx.closePath();
+      ctx.fill();
+      // Right Shoulder (Azul Río)
+      ctx.fillStyle = 'rgba(2, 132, 199, 0.85)';
+      ctx.beginPath();
+      ctx.moveTo(53, 10);
+      ctx.lineTo(42, 5);
+      ctx.lineTo(44, 13);
+      ctx.lineTo(54, 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Jersey Outline
+    defineJerseyPath();
+    ctx.strokeStyle = isGK
+      ? '#0284c7'
+      : kitStyle === 'away'
+      ? '#0284c7'
+      : kitStyle === 'third'
+      ? '#38bdf8'
+      : '#34d399';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Collar Trim
+    ctx.beginPath();
+    ctx.moveTo(22, 5);
+    ctx.quadraticCurveTo(32, 11, 42, 5);
+    ctx.strokeStyle = isGK
+      ? '#0c4a6e'
+      : kitStyle === 'away'
+      ? '#047857'
+      : kitStyle === 'third'
+      ? '#fbbf24'
+      : '#38bdf8';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Sleeve Cuffs (Left Verde, Right Azul for rich San Luis identity)
+    ctx.beginPath();
+    ctx.moveTo(1, 23);
+    ctx.lineTo(10, 29);
+    ctx.strokeStyle = isGK ? '#047857' : kitStyle === 'away' ? '#047857' : kitStyle === 'third' ? '#fbbf24' : '#0284c7';
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(63, 23);
+    ctx.lineTo(54, 29);
+    ctx.strokeStyle = isGK ? '#0284c7' : kitStyle === 'away' ? '#0284c7' : kitStyle === 'third' ? '#fbbf24' : '#0284c7';
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Captain Armband
+    if (player.isCaptain) {
+      ctx.save();
+      ctx.fillStyle = '#facc15';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(3.5, 21.5);
+      ctx.lineTo(10.5, 18);
+      ctx.lineTo(11.5, 23.5);
+      ctx.lineTo(4.5, 26.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '900 5px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('C', 7.5, 22.5);
+      ctx.restore();
+    }
+
+    // Photo Crest Badge on Chest
     const playerImg = photoCache.get(player.playerId);
     if (playerImg) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(px, py, tokenRadius, 0, Math.PI * 2);
-      ctx.clip();
+      ctx.arc(21, 20, 5.5, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
       ctx.fill();
-      ctx.drawImage(playerImg, px - tokenRadius, py - tokenRadius, tokenRadius * 2, tokenRadius * 2);
+      ctx.clip();
+      ctx.drawImage(playerImg, 15.5, 14.5, 11, 11);
       ctx.restore();
 
-      // Mini dorsal badge
-      ctx.fillStyle = isGK ? '#eab308' : '#047857';
       ctx.beginPath();
-      ctx.arc(px + 22, py + 22, 16, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(21, 20, 5.5, 0, Math.PI * 2);
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 15px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${player.jerseyNumber}`, px + 22, py + 22);
-    } else {
-      // Big dorsal number
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 28px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${player.jerseyNumber}`, px, py - 2);
     }
 
-    // Captain armband badge
-    if (player.isCaptain) {
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(px - 22, py - 22, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+    // Dorsal Jersey Number
+    ctx.save();
+    ctx.fillStyle = isGK
+      ? '#0c4a6e'
+      : kitStyle === 'away'
+      ? '#047857'
+      : kitStyle === 'third'
+      ? '#fef08a'
+      : '#ffffff';
+    ctx.font = '900 18px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = isGK
+      ? '#ffffff'
+      : kitStyle === 'away'
+      ? '#ffffff'
+      : kitStyle === 'third'
+      ? '#0c4a6e'
+      : '#0c4a6e';
+    ctx.lineWidth = 0.8;
+    ctx.strokeText(`${player.jerseyNumber}`, 32, 35);
+    ctx.fillText(`${player.jerseyNumber}`, 32, 35);
+    ctx.restore();
 
-      ctx.fillStyle = '#000000';
-      ctx.font = '900 13px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('C', px - 22, py - 22);
-    }
+    ctx.restore(); // end scaled jersey
+    ctx.restore(); // end drop shadow
 
-    // Player Name Pill (Primer Nombre y Primer Apellido bien visible)
+    // Player Name Pill directly under jersey (Grandeur & High Contrast)
     const displayName = formatFirstAndLastName(player.fullName);
-    ctx.font = '900 17px system-ui, -apple-system, sans-serif';
+    const nameFontSize = Math.round(tokenRadius * 0.4);
+    ctx.font = `900 ${nameFontSize}px system-ui, -apple-system, sans-serif`;
     const textWidth = ctx.measureText(displayName).width;
-    const pillW = Math.max(textWidth + 34, 115);
-    const pillH = 30;
-    const pillY = py + tokenRadius + 7;
+    const pillW = Math.max(textWidth + Math.round(tokenRadius * 0.8), Math.round(tokenRadius * 2.85));
+    const pillH = Math.round(tokenRadius * 0.68);
+    const pillY = py + jh / 2 + 5;
 
-    // Pill background
+    // Pill background (dark glass)
+    ctx.save();
     ctx.fillStyle = 'rgba(2, 10, 6, 0.95)';
     ctx.beginPath();
     safeRoundRect(ctx, px - pillW / 2, pillY, pillW, pillH, 8);
     ctx.fill();
     ctx.strokeStyle = ringColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
 
     // Name text
@@ -1165,9 +1412,26 @@ export async function renderTacticalLineupToCanvas(
     ctx.fillText(displayName, px, pillY + pillH / 2);
 
     // Role badge underneath pill
-    ctx.fillStyle = isGK ? '#fef08a' : '#a7f3d0';
-    ctx.font = '900 12px system-ui, -apple-system, sans-serif';
-    ctx.fillText(player.role.toUpperCase(), px, pillY + pillH + 11);
+    const roleFontSize = Math.round(tokenRadius * 0.28);
+    ctx.font = `900 ${roleFontSize}px system-ui, -apple-system, sans-serif`;
+    const roleText = player.role.toUpperCase();
+    const roleW = Math.max(ctx.measureText(roleText).width + 18, Math.round(tokenRadius * 0.9));
+    const roleH = Math.round(tokenRadius * 0.44);
+    const roleY = pillY + pillH + 4;
+
+    ctx.fillStyle = isGK ? 'rgba(250, 204, 21, 0.95)' : 'rgba(4, 120, 87, 0.95)';
+    ctx.beginPath();
+    safeRoundRect(ctx, px - roleW / 2, roleY, roleW, roleH, 6);
+    ctx.fill();
+    ctx.strokeStyle = isGK ? '#ca8a04' : '#10b981';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = isGK ? '#713f12' : '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(roleText, px, roleY + roleH / 2);
+    ctx.restore();
 
     ctx.restore();
   });

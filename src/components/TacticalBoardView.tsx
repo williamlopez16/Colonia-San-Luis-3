@@ -23,6 +23,7 @@ import {
 } from '../services/tacticalService';
 import { saveMatch } from '../services/dataService';
 import { copyToClipboard, formatMatchDate } from '../services/whatsappService';
+import { SoccerJersey } from './SoccerJersey';
 import {
   Download,
   Share2,
@@ -48,6 +49,7 @@ import {
   RefreshCw,
   Plus,
   ArrowLeftRight,
+  Shirt,
 } from 'lucide-react';
 
 interface TacticalBoardViewProps {
@@ -144,6 +146,25 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
   const [copiedWhatsApp, setCopiedWhatsApp] = useState<boolean>(false);
   const [showRolePicker, setShowRolePicker] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isPitchOnlyFullscreen, setIsPitchOnlyFullscreen] = useState<boolean>(false);
+  const [kitStyle, setKitStyle] = useState<'home' | 'away' | 'third'>('home');
+  // Player token scale percentage (70% - 150%, default 105%)
+  const [playerSizePercent, setPlayerSizePercent] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('tactical_player_size');
+      return saved ? Number(saved) : 105;
+    } catch {
+      return 105;
+    }
+  });
+
+  const handlePlayerSizeChange = (newSize: number) => {
+    const clamped = Math.max(70, Math.min(150, Math.round(newSize)));
+    setPlayerSizePercent(clamped);
+    try {
+      localStorage.setItem('tactical_player_size', String(clamped));
+    } catch {}
+  };
 
   // References for drag, drawing, and fullscreen
   const containerRef = useRef<HTMLDivElement>(null);
@@ -176,9 +197,35 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
     }
   };
 
+  const handleTogglePitchFullscreen = () => {
+    if (!isPitchOnlyFullscreen) {
+      try {
+        if (pitchRef.current?.requestFullscreen) {
+          pitchRef.current.requestFullscreen().catch(() => {});
+        }
+      } catch {
+        // fallback
+      }
+      setIsPitchOnlyFullscreen(true);
+    } else {
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      } catch {
+        // fallback
+      }
+      setIsPitchOnlyFullscreen(false);
+    }
+  };
+
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const isDocFull = Boolean(document.fullscreenElement);
+      if (!isDocFull) {
+        setIsFullscreen(false);
+        setIsPitchOnlyFullscreen(false);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -186,6 +233,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsFullscreen(false);
+        setIsPitchOnlyFullscreen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -519,7 +567,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
     setIsExportModalOpen(true);
   };
 
-  // Re-render canvas whenever export modal opens or lineup changes
+  // Re-render canvas whenever export modal opens, kitStyle changes, player size changes or lineup changes
   useEffect(() => {
     if (isExportModalOpen) {
       setIsExporting(true);
@@ -530,6 +578,8 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
               team,
               match: activeMatch,
               lineup,
+              kitStyle,
+              playerScale: playerSizePercent / 100,
             });
           } catch (err) {
             console.error('Error rendering tactical canvas:', err);
@@ -541,7 +591,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [isExportModalOpen, team, activeMatch, lineup]);
+  }, [isExportModalOpen, team, activeMatch, lineup, kitStyle, playerSizePercent]);
 
   // Download Canvas as PNG with guaranteed render & Blob handling
   const handleDownloadCanvasPng = async () => {
@@ -556,11 +606,13 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
           team,
           match: activeMatch,
           lineup,
+          kitStyle,
+          playerScale: playerSizePercent / 100,
         });
       }
 
       const safeMatchName = activeMatch ? `vs_${activeMatch.rival.replace(/\s+/g, '_')}` : 'Colonia_San_Luis';
-      const filename = `Alineacion_${safeMatchName}_${lineup.formation}.png`;
+      const filename = `Alineacion_${safeMatchName}_${lineup.formation}_${kitStyle}.png`;
       const ok = await downloadTacticalCanvasPng(canvas, filename);
       if (ok) {
         setDownloadSuccess(true);
@@ -580,7 +632,13 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
     try {
       setIsExporting(true);
       if (canvas.width < 1000 || canvas.height < 1000) {
-        await renderTacticalLineupToCanvas(canvas, { team, match: activeMatch, lineup });
+        await renderTacticalLineupToCanvas(canvas, {
+          team,
+          match: activeMatch,
+          lineup,
+          kitStyle,
+          playerScale: playerSizePercent / 100,
+        });
       }
 
       canvas.toBlob(async (blob) => {
@@ -860,6 +918,100 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
             </button>
           </div>
 
+          {/* Kit Style Selector (Colores Oficiales de San Luis Antioquia) */}
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl text-xs">
+            <Shirt className="w-3.5 h-3.5 text-gray-500 ml-1 hidden sm:inline" />
+            <button
+              type="button"
+              onClick={() => setKitStyle('home')}
+              className={`px-2 py-1 rounded-lg font-bold transition cursor-pointer text-[11px] ${
+                kitStyle === 'home' ? 'bg-emerald-800 text-white shadow-2xs font-black' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Uniforme Titular (Verde Esmeralda - Perla de San Luis)"
+            >
+              Verde
+            </button>
+            <button
+              type="button"
+              onClick={() => setKitStyle('away')}
+              className={`px-2 py-1 rounded-lg font-bold transition cursor-pointer text-[11px] ${
+                kitStyle === 'away' ? 'bg-white text-gray-950 shadow-2xs font-black border border-gray-200' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Uniforme Alternativo (Blanco Antioquia)"
+            >
+              Blanco
+            </button>
+            <button
+              type="button"
+              onClick={() => setKitStyle('third')}
+              className={`px-2 py-1 rounded-lg font-bold transition cursor-pointer text-[11px] ${
+                kitStyle === 'third' ? 'bg-sky-600 text-white shadow-2xs font-black' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Uniforme Especial (Azul Río Dormilón & Sol Dorado de San Luis)"
+            >
+              Azul
+            </button>
+          </div>
+
+          {/* Player Size Scaler (Agrandar / Reducir Jugadores) */}
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl text-xs">
+            <span className="font-bold text-gray-600 text-[11px] ml-1 hidden sm:inline">Tamaño:</span>
+            <button
+              type="button"
+              onClick={() => handlePlayerSizeChange(playerSizePercent - 10)}
+              className="w-5 h-5 rounded-md bg-white hover:bg-gray-200 text-gray-800 font-black flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer text-xs"
+              title="Reducir tamaño de jugadores (-10%)"
+            >
+              -
+            </button>
+            <div className="flex items-center gap-0.5">
+              {[
+                { label: 'P', size: 85, title: 'Pequeño (85%)' },
+                { label: 'M', size: 105, title: 'Normal (105%)' },
+                { label: 'G', size: 125, title: 'Grande (125%)' },
+                { label: 'XL', size: 145, title: 'Extra Grande (145%)' },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => handlePlayerSizeChange(preset.size)}
+                  className={`px-1.5 py-0.5 rounded font-black text-[10px] transition cursor-pointer ${
+                    Math.abs(playerSizePercent - preset.size) < 8
+                      ? 'bg-emerald-800 text-white shadow-2xs'
+                      : 'bg-white hover:bg-emerald-50 text-gray-700'
+                  }`}
+                  title={preset.title}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePlayerSizeChange(playerSizePercent + 10)}
+              className="w-5 h-5 rounded-md bg-white hover:bg-gray-200 text-gray-800 font-black flex items-center justify-center transition active:scale-95 shadow-2xs cursor-pointer text-xs"
+              title="Aumentar tamaño de jugadores (+10%)"
+            >
+              +
+            </button>
+            <span className="text-[10px] font-black text-emerald-950 w-7 text-center">{playerSizePercent}%</span>
+          </div>
+
+          {/* Toda la Cancha (Pitch-Only Fullscreen) */}
+          <button
+            type="button"
+            onClick={handleTogglePitchFullscreen}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs transition cursor-pointer shadow-xs active:scale-95 ${
+              isPitchOnlyFullscreen
+                ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300'
+                : 'bg-emerald-800 hover:bg-emerald-900 text-white'
+            }`}
+            title="Poner toda la cancha en pantalla completa"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-amber-300" />
+            <span>Toda la Cancha</span>
+          </button>
+
           {/* Quick Fullscreen Button */}
           <button
             type="button"
@@ -872,7 +1024,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
             title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Ver pizarra en pantalla completa'}
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-slate-950" /> : <Maximize2 className="w-3.5 h-3.5 text-emerald-700" />}
-            <span className="hidden sm:inline">{isFullscreen ? 'Salir' : 'Pantalla Completa'}</span>
+            <span className="hidden sm:inline">{isFullscreen ? 'Salir' : 'Pizarra'}</span>
           </button>
         </div>
       </div>
@@ -957,22 +1109,239 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
       )}
 
       {/* 4. Interactive Pitch & Bench Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* Left Column: The Interactive Football Pitch (8 cols on large screens) */}
-        <div className="lg:col-span-8 flex flex-col items-center">
+      <div className={`grid grid-cols-1 lg:grid-cols-12 gap-4 items-start ${isPitchOnlyFullscreen ? 'static' : ''}`}>
+        {/* Left Column: The Interactive Football Pitch (8 cols on large screens, or full-viewport immersive HUD overlay when isPitchOnlyFullscreen) */}
+        <div
+          className={
+            isPitchOnlyFullscreen
+              ? 'fixed inset-0 z-50 bg-slate-950/98 backdrop-blur-lg flex flex-col items-center justify-between p-2 sm:p-4 text-white animate-fade-in select-none overflow-hidden'
+              : 'lg:col-span-8 flex flex-col items-center'
+          }
+        >
+          {/* Pitch Fullscreen Top HUD (When in Toda la Cancha mode) */}
+          {isPitchOnlyFullscreen && (
+            <div className="w-full max-w-5xl flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/90 border border-emerald-500/30 rounded-2xl shadow-xl backdrop-blur-md mb-2 flex-wrap">
+              {/* Club Crest & Info */}
+              <div className="flex items-center gap-2">
+                <img
+                  src={(team?.logoUrl && !team.logoUrl.endsWith('.jpg')) ? team.logoUrl : '/team_logo.png'}
+                  alt=""
+                  className="w-7 h-7 object-contain rounded-full bg-white/10 p-0.5"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/team_logo.png';
+                  }}
+                />
+                <div>
+                  <span className="font-black text-xs text-white uppercase block leading-none">
+                    {team?.name || 'Colonia San Luis F.C'}
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-bold">
+                    {lineup.formation} • {lineup.gameFormat}
+                  </span>
+                </div>
+              </div>
+
+              {/* Mode & Tools */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Move vs Draw */}
+                <div className="flex items-center bg-slate-800 p-0.5 rounded-xl border border-slate-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setBoardMode('move')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                      boardMode === 'move' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Move className="w-3.5 h-3.5" />
+                    <span>Mover</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBoardMode('draw')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold transition cursor-pointer ${
+                      boardMode === 'draw' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>Dibujar</span>
+                  </button>
+                </div>
+
+                {/* Drawing tools if in draw mode */}
+                {boardMode === 'draw' && (
+                  <div className="flex items-center gap-1 bg-emerald-950 px-2 py-1 rounded-xl border border-emerald-700/50 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setDrawTool('arrow')}
+                      className={`px-2 py-0.5 rounded font-bold ${
+                        drawTool === 'arrow' ? 'bg-emerald-600 text-white' : 'text-emerald-300'
+                      }`}
+                    >
+                      ↗️ Carrera
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDrawTool('pass')}
+                      className={`px-2 py-0.5 rounded font-bold ${
+                        drawTool === 'pass' ? 'bg-emerald-600 text-white' : 'text-emerald-300'
+                      }`}
+                    >
+                      {'┈> Pase'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDrawTool('line')}
+                      className={`px-2 py-0.5 rounded font-bold ${
+                        drawTool === 'line' ? 'bg-emerald-600 text-white' : 'text-emerald-300'
+                      }`}
+                    >
+                      ━ Línea
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUndoDrawing}
+                      className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white"
+                      title="Deshacer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearDrawings}
+                      className="px-1.5 py-0.5 rounded text-red-300 hover:text-white"
+                      title="Borrar todo"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Ball toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsBallVisible(!isBallVisible)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                    isBallVisible
+                      ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                      : 'bg-slate-800 border-slate-700 text-slate-400'
+                  }`}
+                  title="Mostrar u ocultar balón"
+                >
+                  ⚽ Balón
+                </button>
+
+                {/* Kit Selector (San Luis Antioquia) */}
+                <div className="flex items-center bg-slate-800 p-0.5 rounded-xl border border-slate-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setKitStyle('home')}
+                    className={`px-2 py-1 rounded-lg font-bold transition cursor-pointer ${
+                      kitStyle === 'home' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Titular (Verde San Luis)"
+                  >
+                    Verde
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKitStyle('away')}
+                    className={`px-2 py-1 rounded-lg font-bold transition cursor-pointer ${
+                      kitStyle === 'away' ? 'bg-white text-slate-900 font-bold' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Alternativo (Blanco Antioquia)"
+                  >
+                    Blanco
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKitStyle('third')}
+                    className={`px-2 py-1 rounded-lg font-bold transition cursor-pointer ${
+                      kitStyle === 'third' ? 'bg-sky-600 text-white font-black' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Especial (Azul Río Dormilón & Sol Dorado)"
+                  >
+                    Azul
+                  </button>
+                </div>
+
+                {/* Fullscreen Player Size Scaler */}
+                <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-xl border border-slate-700 text-xs">
+                  <span className="font-bold text-slate-300 text-[10px] ml-1">Fichas:</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePlayerSizeChange(playerSizePercent - 10)}
+                    className="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white font-black flex items-center justify-center transition active:scale-95"
+                    title="Reducir jugadores (-10%)"
+                  >
+                    -
+                  </button>
+                  <span className="text-[10px] font-black text-amber-300 w-7 text-center">{playerSizePercent}%</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePlayerSizeChange(playerSizePercent + 10)}
+                    className="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white font-black flex items-center justify-center transition active:scale-95"
+                    title="Aumentar jugadores (+10%)"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleOpenExportModal}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-extrabold text-xs shadow-md transition cursor-pointer active:scale-95"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Ficha HD</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTogglePitchFullscreen}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-md transition cursor-pointer active:scale-95"
+                  title="Salir de pantalla completa de cancha (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Salir</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Pitch Outer Frame with Realistic Turf Design */}
           <div
             ref={pitchRef}
             onPointerDown={handlePitchPointerDown}
             onPointerMove={handlePitchPointerMove}
             onPointerUp={handlePitchPointerUp}
-            className={`relative w-full aspect-[1/1.38] mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 border-emerald-900 select-none touch-none cursor-crosshair bg-emerald-900 transition-all ${
-              isFullscreen ? 'max-w-[700px]' : 'max-w-[560px]'
+            className={`relative aspect-[1/1.38] mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 select-none touch-none cursor-crosshair bg-emerald-900 transition-all ${
+              isPitchOnlyFullscreen
+                ? 'h-[78vh] sm:h-[82vh] max-h-[820px] w-auto max-w-[96vw] border-emerald-500/80 shadow-[0_0_50px_rgba(5,150,105,0.35)]'
+                : isFullscreen
+                ? 'w-full max-w-[700px] border-emerald-900'
+                : 'w-full max-w-[560px] border-emerald-900'
             }`}
             style={{
               backgroundImage: `repeating-linear-gradient(0deg, #15803d, #15803d 38px, #166534 38px, #166534 76px)`,
             }}
           >
+            {/* Floating Toda la Cancha Fullscreen Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTogglePitchFullscreen();
+              }}
+              className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/85 hover:bg-black text-amber-300 border border-amber-400/50 backdrop-blur-md shadow-lg text-xs font-black transition cursor-pointer active:scale-95"
+              title="Poner toda la cancha en pantalla completa"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline">Toda la Cancha</span>
+            </button>
+
             {/* SVG Pitch Markings & Lines */}
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none opacity-85"
@@ -1044,7 +1413,7 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
               </div>
             )}
 
-            {/* Starters Player Tokens */}
+            {/* Starters Player Tokens (Soccer Jersey - Lineup11 Style) */}
             {lineup.starters.map((player) => {
               const isSelected = selectedPlayerId === player.playerId;
               const isSwapSource = swapSourcePlayerId === player.playerId;
@@ -1066,65 +1435,41 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
                   style={{
                     left: `${player.x}%`,
                     top: `${player.y}%`,
+                    transform: `translate(-50%, -50%) scale(${(playerSizePercent / 100) * (isSelected ? 1.08 : 1)})`,
+                    transformOrigin: 'center center',
                   }}
-                  className={`absolute z-20 -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing flex flex-col items-center group transition-transform ${
-                    isSelected ? 'scale-110 z-30' : 'hover:scale-105'
+                  className={`absolute z-20 cursor-grab active:cursor-grabbing flex flex-col items-center group transition-transform ${
+                    isSelected ? 'z-30' : 'hover:scale-[1.03]'
                   }`}
                 >
-                  {/* Circular Token - Enlarged for touch accessibility and prominence */}
-                  <div
-                    className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl border-3 transition-all ${
-                      isSwapSource
-                        ? 'ring-4 ring-amber-400 border-white bg-amber-600 animate-pulse scale-105'
-                        : isSelected
-                        ? 'ring-4 ring-yellow-400 border-white scale-105'
-                        : 'border-white/95'
-                    } ${
-                      isEmpty
-                        ? 'bg-emerald-950/80 border-dashed border-emerald-300 text-emerald-200'
-                        : isGK
-                        ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-amber-950 font-black'
-                        : 'bg-gradient-to-br from-emerald-700 to-emerald-900 text-white font-black'
-                    }`}
-                  >
-                    {/* Player Photo or Big Jersey Number */}
-                    {player.photoUrl && !isEmpty ? (
-                      <div className="w-full h-full rounded-full overflow-hidden bg-white p-0.5">
-                        <img
-                          src={player.photoUrl}
-                          alt={player.fullName}
-                          className="w-full h-full object-cover rounded-full"
-                        />
-                        {/* Mini dorsal badge */}
-                        <div
-                          className={`absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[11px] sm:text-xs font-black flex items-center justify-center border-2 border-white shadow-md ${
-                            isGK ? 'bg-amber-400 text-amber-950' : 'bg-emerald-700 text-white'
-                          }`}
-                        >
-                          {player.jerseyNumber}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-xl sm:text-2xl font-black tracking-tight drop-shadow-md">
-                        {isEmpty ? '?' : player.jerseyNumber}
-                      </span>
-                    )}
-
-                    {/* Captain Armband Badge */}
-                    {player.isCaptain && !isEmpty && (
-                      <div className="absolute -top-1.5 -left-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-400 text-amber-950 font-black text-xs flex items-center justify-center border-2 border-white shadow-md">
-                        C
-                      </div>
-                    )}
-                  </div>
+                  {/* Athletic Football Jersey Token (Lineup11 Style) */}
+                  <SoccerJersey
+                    jerseyNumber={isEmpty ? '?' : player.jerseyNumber}
+                    isGK={isGK}
+                    isEmpty={isEmpty}
+                    isCaptain={player.isCaptain}
+                    photoUrl={player.photoUrl}
+                    isSelected={isSelected}
+                    isSwapSource={isSwapSource}
+                    kitStyle={kitStyle}
+                    className={`${
+                      isPitchOnlyFullscreen
+                        ? 'w-12 h-11 sm:w-15 sm:h-13'
+                        : 'w-11 h-10 sm:w-12 sm:h-11'
+                    } transition-transform group-hover:scale-105`}
+                  />
 
                   {/* Player Name Pill (Primer Nombre y Primer Apellido bien visible) */}
-                  <div className="mt-1 flex flex-col items-center pointer-events-none">
+                  <div className="mt-0.5 flex flex-col items-center pointer-events-none">
                     <span
-                      className={`px-3 py-1 sm:py-1.5 rounded-xl text-xs sm:text-[13px] font-black max-w-[145px] sm:max-w-[175px] truncate shadow-2xl text-center border-2 leading-tight tracking-tight ${
+                      className={`px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black ${
+                        isPitchOnlyFullscreen
+                          ? 'max-w-[100px] sm:max-w-[130px] sm:text-[11px]'
+                          : 'max-w-[85px] sm:max-w-[105px]'
+                      } truncate shadow-md text-center border leading-tight tracking-tight ${
                         isSelected
-                          ? 'bg-yellow-400 text-yellow-950 border-yellow-200 ring-2 ring-yellow-400/80 shadow-2xl'
-                          : 'bg-slate-950/95 text-white border-emerald-400/80 shadow-2xl shadow-black/80'
+                          ? 'bg-amber-300 text-slate-950 border-amber-400 ring-2 ring-amber-400/80 shadow-md font-black'
+                          : 'bg-slate-950/95 text-white border-emerald-400/50 shadow-md shadow-black/80'
                       }`}
                       title={player.fullName}
                     >
@@ -1132,8 +1477,8 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
                     </span>
 
                     <span
-                      className={`mt-0.5 text-[10px] sm:text-xs font-black tracking-wider uppercase px-2 py-0.5 rounded-md drop-shadow-md ${
-                        isGK ? 'bg-amber-400 text-amber-950 font-black' : 'bg-emerald-900 text-emerald-200 border border-emerald-500/40'
+                      className={`mt-0.5 text-[7px] sm:text-[8px] font-black tracking-wider uppercase px-1 py-0.2 rounded ${
+                        isGK ? 'bg-amber-400 text-amber-950 font-black' : 'bg-emerald-900/90 text-emerald-200 border border-emerald-500/30'
                       }`}
                     >
                       {player.role}
@@ -1410,6 +1755,71 @@ export const TacticalBoardView: React.FC<TacticalBoardViewProps> = ({
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Kit Selector for HD Export */}
+            <div className="flex items-center justify-between bg-emerald-900/60 p-2.5 rounded-2xl border border-emerald-800 flex-wrap gap-2 text-xs">
+              <span className="font-bold text-emerald-200 flex items-center gap-1.5">
+                <Shirt className="w-4 h-4 text-emerald-400" />
+                <span>Uniforme de la Ficha:</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setKitStyle('home')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer text-xs ${
+                    kitStyle === 'home'
+                      ? 'bg-emerald-600 text-white shadow-xs font-black'
+                      : 'bg-emerald-950/80 text-emerald-300 hover:text-white'
+                  }`}
+                >
+                  🟢 Titular (Verde San Luis)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKitStyle('away')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer text-xs ${
+                    kitStyle === 'away'
+                      ? 'bg-white text-slate-950 shadow-xs font-black'
+                      : 'bg-emerald-950/80 text-emerald-300 hover:text-white'
+                  }`}
+                >
+                  ⚪ Alternativo (Blanco Antioquia)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKitStyle('third')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer text-xs ${
+                    kitStyle === 'third'
+                      ? 'bg-sky-600 text-white shadow-xs font-black'
+                      : 'bg-emerald-950/80 text-emerald-300 hover:text-white'
+                  }`}
+                >
+                  🔵 Especial (Azul Río Dormilón)
+                </button>
+
+                {/* Size Scaler in Export Modal */}
+                <div className="flex items-center gap-1 bg-emerald-950/90 px-2 py-1 rounded-xl border border-emerald-700/60">
+                  <span className="font-bold text-emerald-300 text-[11px] ml-0.5">Tamaño:</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePlayerSizeChange(playerSizePercent - 10)}
+                    className="w-5 h-5 rounded bg-emerald-800 hover:bg-emerald-700 text-white font-black flex items-center justify-center transition active:scale-95 text-xs"
+                    title="Reducir fichas (-10%)"
+                  >
+                    -
+                  </button>
+                  <span className="text-[11px] font-black text-amber-300 w-8 text-center">{playerSizePercent}%</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePlayerSizeChange(playerSizePercent + 10)}
+                    className="w-5 h-5 rounded bg-emerald-800 hover:bg-emerald-700 text-white font-black flex items-center justify-center transition active:scale-95 text-xs"
+                    title="Agrandar fichas (+10%)"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Canvas Preview */}
