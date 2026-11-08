@@ -43,6 +43,7 @@ import {
   Upload,
   Layers,
   Wand2,
+  Copy,
 } from 'lucide-react';
 
 interface PublicidadModalProps {
@@ -72,6 +73,7 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
   const [bgMode, setBgMode] = useState<'procedural' | 'custom_photo'>('procedural');
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
+  const [copiedSquad, setCopiedSquad] = useState<boolean>(false);
 
   // AI Prompt Studio States
   const [activeDesignMode, setActiveDesignMode] = useState<CreativeDesignMode>('MATCHDAY');
@@ -82,6 +84,12 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
   const [showHistoryPanel, setShowHistoryPanel] = useState<boolean>(false);
   const [showConceptPicker, setShowConceptPicker] = useState<boolean>(false);
   const [historyList, setHistoryList] = useState<PromptHistoryEntry[]>([]);
+
+  // Roster Filter: 'confirmed' (Solo Confirmados) vs 'all' (Todos los Convocados)
+  const [rosterFilter, setRosterFilter] = useState<'confirmed' | 'all'>(() => {
+    const hasConfirmed = match.callups.some((c) => c.status === 'Confirmado');
+    return hasConfirmed ? 'confirmed' : 'all';
+  });
 
   useEffect(() => {
     if (!isAdminMode) {
@@ -94,23 +102,32 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
     setHistoryList(getPromptHistory(team?.id));
   }, [team?.id]);
 
-  // Confirmed attendees only
-  const confirmedPlayers = useMemo(
-    () => match.callups.filter((c) => c.status === 'Confirmado'),
+  // Effective players to display and include in publicity
+  const activeCallups = useMemo(() => {
+    if (rosterFilter === 'confirmed') {
+      const confirmed = match.callups.filter((c) => c.status === 'Confirmado');
+      return confirmed.length > 0 ? confirmed : match.callups;
+    }
+    return match.callups;
+  }, [match.callups, rosterFilter]);
+
+  const confirmedCount = useMemo(
+    () => match.callups.filter((c) => c.status === 'Confirmado').length,
     [match.callups]
   );
+  const totalCount = match.callups.length;
 
   const currentTemplate = BILLBOARD_TEMPLATES[templateIndex % BILLBOARD_TEMPLATES.length];
 
-  // AI Prompts Bundle
+  // AI Prompts Bundle (Generated with activeCallups)
   const promptsBundle = useMemo(
     () =>
-      generateAIPrompts(team, match, confirmedPlayers, {
+      generateAIPrompts(team, match, activeCallups, {
         mode: activeDesignMode,
         conceptId: selectedConceptId || undefined,
         recordHistory: true,
       }),
-    [team, match, confirmedPlayers, activeDesignMode, selectedConceptId]
+    [team, match, activeCallups, activeDesignMode, selectedConceptId]
   );
 
   useEffect(() => {
@@ -124,7 +141,7 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
     return promptsBundle.squadTextFormatted;
   }, [aiStyleTab, promptsBundle]);
 
-  // Re-render canvas whenever graphic options change
+  // Re-render canvas whenever graphic options or activeCallups change
   useEffect(() => {
     let isCancelled = false;
 
@@ -134,7 +151,7 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
 
       try {
         const photoToUse = bgMode === 'custom_photo' ? selectedPhotoUrl : null;
-        await renderPublicidadToCanvas(canvasRef.current, team, match, confirmedPlayers, {
+        await renderPublicidadToCanvas(canvasRef.current, team, match, activeCallups, {
           templateIndex,
           format,
           bgPhotoUrl: photoToUse,
@@ -151,7 +168,16 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [templateIndex, format, selectedPhotoUrl, bgMode, team, match, confirmedPlayers]);
+  }, [templateIndex, format, selectedPhotoUrl, bgMode, team, match, activeCallups]);
+
+  // Copy Squad List formatted
+  const handleCopySquadList = async () => {
+    const success = await copyToClipboard(promptsBundle.squadTextFormatted);
+    if (success) {
+      setCopiedSquad(true);
+      setTimeout(() => setCopiedSquad(false), 2500);
+    }
+  };
 
   // Copy AI Prompt
   const handleCopyAIPrompt = async () => {
@@ -305,7 +331,7 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
               {match.location || 'Escenario deportivo'}
             </span>
             <span className="bg-emerald-900/90 text-amber-300 px-2 py-0.5 rounded-full font-black text-[10px] border border-emerald-700/60">
-              {confirmedPlayers.length} Convocados
+              {activeCallups.length} Convocados
             </span>
           </div>
         </div>
@@ -492,6 +518,92 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
                       <span>{selectedPhotoUrl ? 'Cambiar Foto / Fondo IA' : 'Montar Fondo Generado por IA'}</span>
                     </label>
                   </div>
+                </div>
+
+                {/* Roster & Squad Control Card in Publicity */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-emerald-500/30 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-800 text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                        <Users className="w-3.5 h-3.5 text-amber-300" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-gray-900 uppercase tracking-wider block">
+                          Nómina en Publicidad
+                        </span>
+                        <span className="text-[10px] text-gray-500 font-bold">
+                          {activeCallups.length} futbolistas en el póster
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-black border border-emerald-300">
+                      Oficial
+                    </span>
+                  </div>
+
+                  {/* Selector de filtro de convocados: Solo confirmados vs Todos */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRosterFilter('confirmed')}
+                      className={`py-1.5 px-2.5 rounded-xl text-[11px] font-black transition cursor-pointer border flex items-center justify-center gap-1.5 ${
+                        rosterFilter === 'confirmed'
+                          ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
+                          : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                      <span>Confirmados ({confirmedCount})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRosterFilter('all')}
+                      className={`py-1.5 px-2.5 rounded-xl text-[11px] font-black transition cursor-pointer border flex items-center justify-center gap-1.5 ${
+                        rosterFilter === 'all'
+                          ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
+                          : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      <Users className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                      <span>Todos ({totalCount})</span>
+                    </button>
+                  </div>
+
+                  {/* Mini preview chips of players in publicity */}
+                  <div className="max-h-36 overflow-y-auto p-2 bg-slate-50/80 rounded-xl border border-gray-100 divide-y divide-gray-100 space-y-0.5">
+                    {activeCallups.length === 0 ? (
+                      <p className="text-[11px] text-gray-500 text-center py-2 italic">
+                        No hay futbolistas en la convocatoria.
+                      </p>
+                    ) : (
+                      activeCallups.map((p) => (
+                        <div key={p.playerId} className="flex items-center justify-between py-1 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-emerald-800 text-white font-black text-[10px] flex items-center justify-center flex-shrink-0 border border-amber-400/60">
+                              {p.jerseyNumber}
+                            </span>
+                            <span className="font-bold text-gray-800 truncate max-w-[170px]">{p.fullName}</span>
+                          </div>
+                          <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-md ${
+                            p.status === 'Confirmado' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Quick copy roster for WhatsApp */}
+                  <button
+                    type="button"
+                    onClick={handleCopySquadList}
+                    className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-2xs"
+                  >
+                    {copiedSquad ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5 text-emerald-700" />}
+                    <span>{copiedSquad ? '¡Nómina Copiada al Portapapeles!' : 'Copiar Nómina para WhatsApp'}</span>
+                  </button>
                 </div>
 
                 {/* Direct Action Buttons: Download & WhatsApp */}
@@ -786,7 +898,7 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Nómina Convocados ({confirmedPlayers.length})</span>
+                <span>Nómina Convocados ({activeCallups.length})</span>
               </button>
             </div>
 
@@ -796,10 +908,10 @@ export const PublicidadModal: React.FC<PublicidadModalProps> = ({
                 <div className="flex items-center gap-2 text-xs font-bold text-gray-800">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
                   <span>
-                    {aiStyleTab === 'poster' && 'Prompt detallado en 14 bloques militares'}
-                    {aiStyleTab === 'midjourney' && 'Prompt internacional calibrado con parámetros técnicos'}
-                    {aiStyleTab === 'background' && 'Fondo limpio para superponer tipografía'}
-                    {aiStyleTab === 'roster' && 'Lista oficial de convocados confirmados'}
+                    {aiStyleTab === 'poster' && 'Prompt maestro con nómina oficial de convocados y dirección fotográfica'}
+                    {aiStyleTab === 'midjourney' && 'Prompt internacional en inglés con integración de nómina'}
+                    {aiStyleTab === 'background' && 'Fondo editorial limpio con espacio para escudos y nómina'}
+                    {aiStyleTab === 'roster' && 'Texto oficial de la nómina listo para copiar a WhatsApp y redes'}
                   </span>
                 </div>
                 <span className="text-[10px] font-black text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-full">

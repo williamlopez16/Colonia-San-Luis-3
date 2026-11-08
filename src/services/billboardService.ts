@@ -606,10 +606,10 @@ export async function renderPublicidadToCanvas(
   ctx.textBaseline = 'middle';
   ctx.fillText(countBadgeText, badgeX + badgeW / 2, rosterY + 35);
 
-  // Lista de Jugadores en 2 Columnas
+  // Lista de Jugadores Adaptativa (Muestra la nómina completa sin truncar)
   const sortedPlayers = [...confirmedPlayers].sort((a, b) => a.jerseyNumber - b.jerseyNumber);
   const startListY = rosterY + 68;
-  const colWidth = (rosterW - 60) / 2;
+  const availableRosterH = rosterH - 85;
 
   // Si no hay convocados
   if (sortedPlayers.length === 0) {
@@ -617,56 +617,69 @@ export async function renderPublicidadToCanvas(
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Convocatoria abierta en proceso de confirmación del plantel', width / 2, startListY + (rosterH - 90) / 2);
+    ctx.fillText('Nómina oficial en proceso de confirmación del plantel', width / 2, startListY + availableRosterH / 2);
   } else {
-    // Máximo de jugadores a mostrar según formato
-    const maxPlayers = format === 'story' ? 20 : 14;
-    const playersToShow = sortedPlayers.slice(0, maxPlayers);
-    const rowHeight = Math.min(46, (rosterH - 85) / Math.ceil(playersToShow.length / 2));
+    const total = sortedPlayers.length;
+    // Si hay más de 18 jugadores en feed o más de 22 en story, usamos 3 columnas para que quepan todos con nitidez
+    const numCols = (total > 18 && format === 'feed') || total > 22 ? 3 : 2;
+    const numRows = Math.ceil(total / numCols);
+    const colSpacing = 16;
+    const colWidth = (rosterW - 50 - (numCols - 1) * colSpacing) / numCols;
+    const maxRowHeight = numCols === 3 ? 40 : 46;
+    const rowHeight = Math.min(maxRowHeight, Math.max(30, availableRosterH / numRows));
 
-    playersToShow.forEach((p, idx) => {
-      const col = idx % 2;
-      const row = Math.floor(idx / 2);
-      const px = rosterX + 25 + col * colWidth;
+    sortedPlayers.forEach((p, idx) => {
+      const col = idx % numCols;
+      const row = Math.floor(idx / numCols);
+      const px = rosterX + 25 + col * (colWidth + colSpacing);
       const py = startListY + row * rowHeight;
+      const chipH = rowHeight - 5;
+      const chipW = colWidth;
 
-      // Chip contenedor de jugador
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-      safeRoundRect(ctx, px, py, colWidth - 15, rowHeight - 6, 12);
+      // Chip contenedor de jugador con efecto glassmorphism verde esmeralda
+      ctx.fillStyle = 'rgba(6, 95, 70, 0.22)';
+      safeRoundRect(ctx, px, py, chipW, chipH, 10);
       ctx.fill();
+      ctx.strokeStyle = 'rgba(52, 211, 153, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
-      // Dorsal circular con color especial
-      const dorsalR = Math.min(16, (rowHeight - 12) / 2);
-      const dorsalCX = px + 22;
-      const dorsalCY = py + (rowHeight - 6) / 2;
+      // Dorsal circular con color verde esmeralda y borde dorado
+      const dorsalR = Math.min(16, (chipH - 8) / 2);
+      const dorsalCX = px + dorsalR + 10;
+      const dorsalCY = py + chipH / 2;
 
       ctx.beginPath();
       ctx.arc(dorsalCX, dorsalCY, dorsalR, 0, Math.PI * 2);
-      ctx.fillStyle = '#059669';
+      ctx.fillStyle = '#065f46';
       ctx.fill();
       ctx.strokeStyle = '#fbbf24';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = `900 ${Math.round(dorsalR * 1.05)}px system-ui, -apple-system, sans-serif`;
+      ctx.font = `900 ${Math.max(11, Math.round(dorsalR * 1.05))}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`${p.jerseyNumber}`, dorsalCX, dorsalCY);
 
       // Nombre del Jugador
+      const fontSize = numCols === 3 ? Math.min(13, Math.max(11, chipH * 0.44)) : Math.min(16, Math.max(13, chipH * 0.42));
       ctx.fillStyle = '#ffffff';
-      ctx.font = '800 16px system-ui, -apple-system, sans-serif';
+      ctx.font = `800 ${Math.round(fontSize)}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      const nameX = px + 46;
-      const maxNameW = colWidth - 85;
+      const nameX = dorsalCX + dorsalR + 10;
+      const maxNameW = chipW - (nameX - px) - 8;
 
-      // Truncar nombre si excede el ancho
+      // Truncar nombre elegantemente si excede el ancho disponible
       let nameToDraw = p.fullName;
       if (ctx.measureText(nameToDraw).width > maxNameW) {
         const parts = p.fullName.split(' ');
         nameToDraw = parts.length >= 2 ? `${parts[0]} ${parts[1]}` : parts[0];
+        if (ctx.measureText(nameToDraw).width > maxNameW && parts.length >= 2) {
+          nameToDraw = `${parts[0]} ${parts[1].charAt(0)}.`;
+        }
       }
       ctx.fillText(nameToDraw, nameX, dorsalCY, maxNameW);
     });

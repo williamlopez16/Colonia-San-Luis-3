@@ -615,15 +615,27 @@ export function generateAIPrompts(
   // Selección inteligente y autónoma del concepto creativo
   const concept = selectIntelligentConcept(mode, match.id, team?.id, options?.conceptId);
 
-  // Formateo estricto de la lista de convocados (solo confirmados reales)
+  // Formateo estricto de la lista de convocados (solo futbolistas reales registrados)
   const sortedConfirmed = [...confirmedPlayers].sort((a, b) => a.jerseyNumber - b.jerseyNumber);
   const squadListText = sortedConfirmed.length > 0
     ? sortedConfirmed.map((p) => `#${p.jerseyNumber} ${p.fullName}`).join(', ')
     : 'Nómina oficial completa registrada para el encuentro';
 
-  const squadLinesText = sortedConfirmed.length > 0
-    ? sortedConfirmed.map((p) => `• #${p.jerseyNumber} ${p.fullName}`).join('\n')
-    : '• Nómina titular y suplentes oficiales';
+  const squadLinesText = [
+    `🟢⚪ COLONIA SAN LUIS F.C. ⚪🟢`,
+    `🏆 ${tournament}`,
+    `⚔️ VS ${rivalName}`,
+    `📅 ${dateFormatted}  •  ⏰ ${timeFormatted}`,
+    `📍 ${location}`,
+    ``,
+    `📋 NÓMINA OFICIAL DE CONVOCADOS (${sortedConfirmed.length} JUGADORES):`,
+    ...(sortedConfirmed.length > 0
+      ? sortedConfirmed.map((p) => `👕 #${p.jerseyNumber} ${p.fullName}`)
+      : ['• Nómina oficial en proceso de confirmación']),
+    ``,
+    `💪 ¡VAMOS COLONIA SAN LUIS!`,
+    `✨ "LA PERLA VERDE DE ANTIOQUIA" • "FE, ESPERANZA Y FUTURO"`,
+  ].join('\n');
 
   // Marcador si existe
   let scoreText = '';
@@ -633,7 +645,7 @@ export function generateAIPrompts(
 
   // =========================================================================
   // 1. PROMPT MAESTRO EN ESPAÑOL (ChatGPT, Ideogram, Gemini, DALL-E 3)
-  // Estructurado en 14 bloques militares de dirección creativa profesional
+  // Estructurado en bloques de dirección creativa profesional
   // =========================================================================
   const fullPosterPromptEs = `INSTRUCCIÓN MAESTRA DE PUBLICIDAD DEPORTIVA PROFESIONAL: PÓSTER OFICIAL DE FÚTBOL
 CAMPAÑA INTERNACIONAL: "${concept.title.toUpperCase()}"
@@ -681,44 +693,46 @@ ${scoreText ? `• Marcador Oficial Final: ${scoreText}\n` : ''}• Colores Ofic
 7. COMPOSICIÓN Y DISTRIBUCIÓN ESPACIAL:
 • ${concept.composition}
 • Espacio Negativo (Copy Space): ${concept.negativeSpace}
-• La imagen debe permitir que los textos oficiales y los escudos respiren con dignidad editorial sin invadir el protagonismo fotográfico.
+• La imagen debe permitir que los textos oficiales, los escudos y la nómina de convocados respiren con dignidad editorial sin invadir el protagonismo fotográfico.
 
 8. TRATAMIENTO DE ESCUDOS E IDENTIDAD VISUAL:
 • Escudo de "${teamName}": Escudo heráldico con los colores verde esmeralda y oro, sol dorado radiante en la cumbre, silueta de montañas, hacha maderera, iglesia y rama de café de San Luis.
 • No inventar ni distorsionar la heráldica oficial; representar con dignidad institucional sobre fondo limpio o en la parte superior.
 • Escudo o distintivo del rival: "${rivalName}" ubicado con simetría y jerarquía deportiva.
 
-${mode === 'CONVOCATORIA' ? `9. NÓMINA OFICIAL DE CONVOCADOS (CON DORSALES EXACTOS):
-${squadListText}
-• Los dorsales y nombres deben ir en una tipografía condensada de alta legibilidad en la zona designada de espacio negativo.
-` : `9. JUGADORES Y ELEMENTOS HUMANOS:
+9. NÓMINA OFICIAL DE CONVOCADOS (${sortedConfirmed.length} JUGADORES CON DORSALES Y NOMBRES OBLIGATORIOS):
+• Lista Completa de Jugadores Convocados:
+${sortedConfirmed.length > 0 ? sortedConfirmed.map((p) => `  - #${p.jerseyNumber} ${p.fullName}`).join('\n') : '  - Nómina oficial completa registrada para el encuentro'}
+• Requisito Publicitario de la Nómina: La pieza publicitaria DEBE incorporar este bloque con la lista de convocados ("NÓMINA OFICIAL DE CONVOCADOS - ${sortedConfirmed.length} CONFIRMADOS"), organizada en columnas ordenadas por dorsal. Cada número debe presentarse en un chip circular verde esmeralda (${primaryColor}) con contorno dorado (${accentColor}) y tipografía blanca de máxima nitidez.
+
+10. JUGADORES Y ELEMENTOS HUMANOS:
 • Anatomía humana 100% natural y atlética. Músculos tensos por el esfuerzo sin exageraciones deformes.
 • Piel con textura real: poros auténticos, micro-arrugas de expresión, gotas de sudor natural reflejando la luz, sin retoque plástico ni piel de cera.
 • Uniformes de fútbol con textura de tela microperforada transpirable, costuras reales y caída física auténtica.
-`}
 
-10. PALETA CROMÁTICA Y COLOR GRADING:
+11. PALETA CROMÁTICA Y COLOR GRADING:
 • Color Grading: ${concept.colorGrading}
-• Tonos dominantes: Verde esmeralda (#15803d), blanco nieve (#ffffff), acentos dorados cálidos (#fbbf24) y negros profundos con detalle en sombras.
+• Tonos dominantes: Verde esmeralda (${primaryColor}), blanco nieve (${secondaryColor}), acentos dorados cálidos (${accentColor}) y negros profundos con detalle en sombras.
 
-11. TRATAMIENTO TIPOGRÁFICO Y TEXTO:
+12. TRATAMIENTO TIPOGRÁFICO Y TEXTO:
 • Título Principal: "MATCHDAY" o "${teamName.toUpperCase()} VS ${rivalName.toUpperCase()}".
 • Tipografía: Tipografía deportiva geométrica, condensada y contundente, en caja alta (bold condensed athletic sans-serif).
 • Subtítulos: "${tournament.toUpperCase()}" • "${dateFormatted.toUpperCase()}" • "${timeFormatted.toUpperCase()}".
 • El texto debe ser nítido, sin deformaciones ni palabras inventadas.
 
-12. RESTRICCIONES ABSOLUTAS Y ELEMENTOS PROHIBIDOS (ANTI-AI SLOP):
+13. RESTRICCIONES ABSOLUTAS Y ELEMENTOS PROHIBIDOS (ANTI-AI SLOP):
 • TOTALMENTE PROHIBIDO: Efecto de piel plástica, rostros suavizados estilo filtro de belleza, ojos vidriosos o desalineados.
 • PROHIBIDO: Manos con más o menos de 5 dedos, extremidades deformes, anatomía imposible o flotante.
 • PROHIBIDO: Exceso de partículas flotantes, chispas innecesarias, destellos de lente de circo o explosiones irreales.
 • PROHIBIDO: Estética de videojuego (no FIFA / eFootball 3D render) ni muñecos CGI. Debe parecer una toma capturada por un fotógrafo profesional premiado.
 • PROHIBIDO: Inventar nombres de jugadores que no estén en la lista oficial suministrada ni modificar las fechas y lugares dados.
 
-13. ESPECIFICACIONES TÉCNICAS DE ENTREGA:
+14. ESPECIFICACIONES TÉCNICAS DE ENTREGA:
 • Formato: Vertical póster / cartelera 4:5 o 9:16 (1080x1350 px o 1080x1920 px).
 • Resolución: Ultra HD 8K, hiper-detallado, acabado editorial publicitario listo para publicación.
 
-14. RESUMEN DE CONTROL DE CALIDAD:
+15. RESUMEN DE CONTROL DE CALIDAD:
+• Lista de convocados incluida: SÍ (${sortedConfirmed.length} futbolistas verificados)
 • Fotografía deportiva creíble: SÍ
 • Datos oficiales exactos respetados: SÍ
 • Identidad de Colonia San Luis F.C.: SÍ
@@ -728,13 +742,13 @@ ${squadListText}
   // 2. PROMPT INTERNACIONAL EN INGLÉS (Midjourney v6.1, Flux.1 Pro, SDXL)
   // Optimizado con sintaxis fotográfica y parámetros exactos
   // =========================================================================
-  const midjourneyPromptEn = `Master sports commercial photography poster for official football match, "${teamName}" vs "${rivalName}". Creative concept: "${concept.title}". ${concept.description} Shot on ${concept.camera}, ${concept.lens}, ${concept.aperture}, shutter speed ${concept.shutterSpeed}, ${concept.iso}. ${concept.lighting} Atmosphere: ${concept.atmosphere}. Color grading: ${concept.colorGrading}. Pristine natural emerald green grass pitch (#15803d) with sharp white chalk lines, stadium floodlights cutting through light atmospheric mist, high micro-contrast, authentic human skin texture with pores and subtle sweat droplets, realistic athletic anatomy, realistic breathable sports jersey fabric with stitched crest details. Clean negative space at the top and bottom third for editorial typography reading "${tournament}", "${dateFormatted}". Regal, heroic, documentary realism, commercial sports campaign award-winning photograph, zero plastic skin, zero CGI artifact, 8k resolution, raw photorealism --ar 4:5 --v 6.1 --style raw --q 2 --s 250`;
+  const midjourneyPromptEn = `Master sports commercial photography poster for official football match, "${teamName}" vs "${rivalName}". Creative concept: "${concept.title}". ${concept.description} Official squad roster of ${sortedConfirmed.length} players with jersey numbers and names (${squadListText.slice(0, 180)}...) formatted on clean lower glassmorphism editorial card. Shot on ${concept.camera}, ${concept.lens}, ${concept.aperture}, shutter speed ${concept.shutterSpeed}, ${concept.iso}. ${concept.lighting} Atmosphere: ${concept.atmosphere}. Color grading: ${concept.colorGrading}. Pristine natural emerald green grass pitch (#15803d) with sharp white chalk lines, stadium floodlights cutting through light atmospheric mist, high micro-contrast, authentic human skin texture with pores and subtle sweat droplets, realistic athletic anatomy, realistic breathable sports jersey fabric with stitched crest details. Clean negative space at the top and bottom third for editorial typography reading "${tournament}", "${dateFormatted}". Regal, heroic, documentary realism, commercial sports campaign award-winning photograph, zero plastic skin, zero CGI artifact, 8k resolution, raw photorealism --ar 4:5 --v 6.1 --style raw --q 2 --s 250`;
 
   // =========================================================================
   // 3. CLEAN EDITORIAL BACKGROUND PLATE (Sin textos ni logos de IA)
   // Diseñado para montar tipografía vectorial limpia directamente en la app
   // =========================================================================
-  const cleanBackgroundPromptEs = `Fotografía deportiva profesional de estadio y cancha de fútbol sin textos ni logotipos generados, concepto visual "${concept.title}", encuadre ${concept.composition}, toma con ${concept.camera} y lente ${concept.lens}. Iluminación: ${concept.lighting}. Terreno de juego con césped verde esmeralda impecable (${primaryColor}), líneas de cal blanca nítidas, atmósfera con ${concept.atmosphere}. Composición con generoso espacio negativo limpio y despejado en el tercio superior e inferior para superposición tipográfica perfecta, fotorrealismo óptico absoluto, acabado editorial deportivo internacional, 8k, textura analógica pura, sin personas en primer plano ni marcas de agua.`;
+  const cleanBackgroundPromptEs = `Fotografía deportiva profesional de estadio y cancha de fútbol sin textos ni logotipos generados, concepto visual "${concept.title}", encuadre ${concept.composition}, toma con ${concept.camera} y lente ${concept.lens}. Iluminación: ${concept.lighting}. Terreno de juego con césped verde esmeralda impecable (${primaryColor}), líneas de cal blanca nítidas, atmósfera con ${concept.atmosphere}. Composición con generoso espacio negativo limpio y despejado en el tercio superior e inferior para superposición tipográfica perfecta de los escudos y de la nómina oficial de ${sortedConfirmed.length} convocados, fotorrealismo óptico absoluto, acabado editorial deportivo internacional, 8k, textura analógica pura, sin personas en primer plano ni marcas de agua.`;
 
   // Registrar en el historial si está habilitado
   if (options?.recordHistory !== false && typeof window !== 'undefined') {
