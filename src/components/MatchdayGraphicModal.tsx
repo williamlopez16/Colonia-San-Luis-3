@@ -687,12 +687,14 @@ export const MatchdayGraphicModal: React.FC<MatchdayGraphicModalProps> = ({
               {/* Prompt Text Card */}
               <div className="bg-white rounded-2xl border-2 border-purple-200 p-4 shadow-sm space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800">
+                    <span className="w-5 h-5 rounded-md bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[10px]">
+                      #{aiPrompts.concept.number}
+                    </span>
                     <span>
-                      {aiStyleTab === 'poster' && 'Prompt detallado con nómina y dorsales'}
-                      {aiStyleTab === 'midjourney' && 'Optimizado para Midjourney v6 y Flux'}
-                      {aiStyleTab === 'background' && 'Fondo limpio sin texto para montar en la app'}
+                      {aiStyleTab === 'poster' && `${aiPrompts.concept.title} (Prompt Maestro)`}
+                      {aiStyleTab === 'midjourney' && `${aiPrompts.concept.title} (Midjourney / Flux)`}
+                      {aiStyleTab === 'background' && `${aiPrompts.concept.title} (Fondo Limpio)`}
                     </span>
                   </div>
                   <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full">

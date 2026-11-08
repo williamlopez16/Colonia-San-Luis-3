@@ -43,6 +43,7 @@ interface MatchListProps {
   onDeleteMatch: (matchId: string) => void;
   onOpenMatchStats: (matchId: string) => void;
   onOpenMatchdayGraphic?: (match: Match) => void;
+  onOpenPublicidad?: (match: Match) => void;
   onOpenAIPrompt?: (match: Match) => void;
   onOpenPostMatch?: (match: Match) => void;
   onOpenTacticalBoard?: (matchId: string) => void;
@@ -99,6 +100,7 @@ export const MatchList: React.FC<MatchListProps> = ({
   onDeleteMatch,
   onOpenMatchStats,
   onOpenMatchdayGraphic,
+  onOpenPublicidad,
   onOpenAIPrompt,
   onOpenPostMatch,
   onOpenTacticalBoard,
@@ -880,18 +882,19 @@ export const MatchList: React.FC<MatchListProps> = ({
 
                           {/* Actions Toolbar */}
                           <div className="flex items-center gap-2 justify-end flex-wrap">
-                            {/* Botón Cartelera Matchday (solo admin) */}
-                            {isAdminMode && onOpenMatchdayGraphic && (
+                            {/* Botón Maestro Unificado: PUBLICIDAD (solo admin) */}
+                            {isAdminMode && (onOpenPublicidad || onOpenMatchdayGraphic) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onOpenMatchdayGraphic(match);
+                                  if (onOpenPublicidad) onOpenPublicidad(match);
+                                  else if (onOpenMatchdayGraphic) onOpenMatchdayGraphic(match);
                                 }}
-                                className="px-3 py-2 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-                                title="Cartelera oficial Matchday para redes sociales y WhatsApp"
+                                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-800 via-slate-900 to-emerald-950 hover:from-emerald-700 hover:to-slate-800 text-white font-black text-xs flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 border border-emerald-500/40"
+                                title="Estudio de Publicidad: Cartelera Oficial HD y Director Creativo IA"
                               >
-                                <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                                <span>Cartelera Matchday</span>
+                                <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 animate-pulse" />
+                                <span>PUBLICIDAD</span>
                               </button>
                             )}
 

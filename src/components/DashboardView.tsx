@@ -43,6 +43,7 @@ interface DashboardViewProps {
   onEditMatch: (match: Match) => void;
   onViewMatchCallups: (matchId: string) => void;
   onOpenMatchdayGraphic: (match: Match) => void;
+  onOpenPublicidad?: (match: Match) => void;
   onOpenMatchStats: (matchId: string) => void;
   onNavigateToTab: (tab: AppTab) => void;
   onOpenAIPrompt?: (match: Match) => void;
@@ -62,6 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onEditMatch,
   onViewMatchCallups,
   onOpenMatchdayGraphic,
+  onOpenPublicidad,
   onOpenMatchStats,
   onNavigateToTab,
   onOpenAIPrompt,
@@ -685,22 +687,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Row 1: High-Priority Matchday Operations */}
               <div className={`grid gap-2.5 ${isAdminMode ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
-                {/* 1. Cartelera Matchday (solo modo administrador) */}
+                {/* 1. Botón Maestro Unificado: PUBLICIDAD (solo modo administrador) */}
                 {isAdminMode && (
                   <button
-                    onClick={() => onOpenMatchdayGraphic(nextMatch)}
-                    className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white font-extrabold text-xs sm:text-sm shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-98"
-                    title="Cartelera oficial Matchday para redes sociales y WhatsApp"
+                    onClick={() => {
+                      if (onOpenPublicidad) onOpenPublicidad(nextMatch);
+                      else onOpenMatchdayGraphic(nextMatch);
+                    }}
+                    className="flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-800 via-slate-900 to-emerald-950 hover:from-emerald-700 hover:to-slate-800 text-white font-black text-xs sm:text-sm shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-98 border border-emerald-500/40"
+                    title="Estudio de Publicidad: Cartelera Oficial HD y Director Creativo IA"
                   >
-                    <Sparkles className="w-4 h-4 text-amber-300 flex-shrink-0" />
-                    <span>Cartelera Matchday</span>
+                    <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />
+                    <span>PUBLICIDAD</span>
                   </button>
                 )}
 
                 {/* 2. Tesorería y Arbitrajes */}
                 <button
                   onClick={() => onOpenPostMatch?.(nextMatch)}
-                  className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white font-extrabold text-xs sm:text-sm shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-98"
+                  className="flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-800 hover:to-teal-800 text-white font-extrabold text-xs sm:text-sm shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-98"
                   title="Tesorería, recaudo de arbitrajes y cuotas de este partido"
                 >
                   <DollarSign className="w-4 h-4 text-emerald-300 flex-shrink-0" />

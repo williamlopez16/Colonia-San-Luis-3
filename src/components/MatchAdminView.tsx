@@ -48,10 +48,11 @@ interface MatchAdminViewProps {
   team: Team | null;
   match: Match;
   onBack: () => void;
-  onOpenMatchdayGraphic: () => void;
+  onOpenMatchdayGraphic?: () => void;
   onOpenMatchStats: () => void;
   onEditMatch: () => void;
   onOpenAIPrompt?: () => void;
+  onOpenPublicidad?: (tab?: 'graphic' | 'prompts') => void;
   onOpenPostMatch?: () => void;
   onOpenTacticalBoard?: () => void;
 }
@@ -64,6 +65,7 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
   onOpenMatchStats,
   onEditMatch,
   onOpenAIPrompt,
+  onOpenPublicidad,
   onOpenPostMatch,
   onOpenTacticalBoard,
 }) => {
@@ -138,7 +140,11 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
     setIsUpdatingStatus(true);
     try {
       await closeMatchCallup(match.id);
-      onOpenMatchdayGraphic();
+      if (onOpenPublicidad) {
+        onOpenPublicidad('graphic');
+      } else if (onOpenMatchdayGraphic) {
+        onOpenMatchdayGraphic();
+      }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Error al cerrar convocatoria');
     } finally {
@@ -224,15 +230,21 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Botón Cartelera Matchday (solo admin) */}
-            {isAdminMode && onOpenMatchdayGraphic && (
+            {/* Botón Estudio Unificado de PUBLICIDAD (solo admin) */}
+            {isAdminMode && (onOpenPublicidad || onOpenMatchdayGraphic) && (
               <button
-                onClick={onOpenMatchdayGraphic}
-                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 hover:from-purple-800 hover:to-indigo-800 text-white px-3.5 py-2 text-xs font-extrabold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
-                title="Generar cartelera oficial Matchday para redes sociales y WhatsApp"
+                onClick={() => {
+                  if (onOpenPublicidad) {
+                    onOpenPublicidad();
+                  } else if (onOpenMatchdayGraphic) {
+                    onOpenMatchdayGraphic();
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-800 via-slate-900 to-emerald-950 hover:from-emerald-700 hover:to-slate-800 text-white px-3.5 py-2 text-xs font-black shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 border border-emerald-500/40"
+                title="Estudio de Publicidad Oficial: Cartelera HD y Director Creativo IA"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                <span>Cartelera Matchday</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 animate-pulse" />
+                <span>PUBLICIDAD</span>
               </button>
             )}
 
@@ -414,16 +426,19 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
                   className="flex items-center gap-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 text-xs font-bold shadow-xs transition cursor-pointer"
                 >
                   <Lock className="w-4 h-4" />
-                  <span>Cerrar Convocatoria y Generar Cartelera</span>
+                  <span>Cerrar Convocatoria y Abrir Publicidad</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={onOpenMatchdayGraphic}
-                    className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition cursor-pointer"
+                    onClick={() => {
+                      if (onOpenPublicidad) onOpenPublicidad('graphic');
+                      else if (onOpenMatchdayGraphic) onOpenMatchdayGraphic();
+                    }}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-800 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white px-4 py-2 text-xs font-black shadow-xs transition cursor-pointer border border-emerald-500/40"
                   >
-                    <ImageIcon className="w-4 h-4" />
-                    <span>Ver Cartelera Matchday</span>
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Ver Publicidad Oficial</span>
                   </button>
                   <button
                     onClick={handleReopenCallup}
@@ -439,11 +454,14 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
             ) : (
               match.status === 'Cerrada' && (
                 <button
-                  onClick={onOpenMatchdayGraphic}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition cursor-pointer"
+                  onClick={() => {
+                    if (onOpenPublicidad) onOpenPublicidad('graphic');
+                    else if (onOpenMatchdayGraphic) onOpenMatchdayGraphic();
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-800 to-slate-900 hover:from-emerald-700 hover:to-slate-800 text-white px-4 py-2 text-xs font-black shadow-xs transition cursor-pointer border border-emerald-500/40"
                 >
-                  <ImageIcon className="w-4 h-4" />
-                  <span>Ver Cartelera Matchday</span>
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Ver Publicidad Oficial</span>
                 </button>
               )
             )}

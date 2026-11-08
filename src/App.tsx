@@ -37,6 +37,7 @@ import { PublicConfirmView } from './components/PublicConfirmView';
 import { MatchdayGraphicModal } from './components/MatchdayGraphicModal';
 import { MatchStatsModal } from './components/MatchStatsModal';
 import { AIPromptModal } from './components/AIPromptModal';
+import { PublicidadModal } from './components/PublicidadModal';
 import { PostMatchModal } from './components/PostMatchModal';
 import { StatsView } from './components/StatsView';
 import { TacticalBoardView } from './components/TacticalBoardView';
@@ -63,9 +64,8 @@ export default function App() {
   const [statsMatchId, setStatsMatchId] = useState<string | null>(null);
   const [isCreatingMatch, setIsCreatingMatch] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
-  const [graphicMatch, setGraphicMatch] = useState<Match | null>(null);
-  const [graphicInitialTab, setGraphicInitialTab] = useState<'designer' | 'ai'>('designer');
-  const [aiPromptMatch, setAiPromptMatch] = useState<Match | null>(null);
+  const [publicidadMatch, setPublicidadMatch] = useState<Match | null>(null);
+  const [publicidadInitialTab, setPublicidadInitialTab] = useState<'graphic' | 'prompts'>('graphic');
   const [postMatchMatch, setPostMatchMatch] = useState<Match | null>(null);
   const [showTeamModal, setShowTeamModal] = useState<boolean>(false);
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
@@ -197,14 +197,17 @@ export default function App() {
     setActiveTab('matches');
   };
 
+  const handleOpenPublicidad = (match: Match, tab: 'graphic' | 'prompts' = 'graphic') => {
+    setPublicidadInitialTab(tab);
+    setPublicidadMatch(match);
+  };
+
   const handleOpenMatchdayGraphic = (match: Match, tab: 'designer' | 'ai' = 'designer') => {
-    setGraphicInitialTab(tab);
-    setGraphicMatch(match);
+    handleOpenPublicidad(match, tab === 'ai' ? 'prompts' : 'graphic');
   };
 
   const handleOpenAIPrompt = (match: Match) => {
-    setGraphicInitialTab('ai');
-    setGraphicMatch(match);
+    handleOpenPublicidad(match, 'prompts');
   };
 
   const handleOpenPostMatch = (match: Match) => {
@@ -320,6 +323,7 @@ export default function App() {
             onProgramMatch={handleProgramMatch}
             onEditMatch={handleStartEditMatch}
             onViewMatchCallups={handleViewMatchCallups}
+            onOpenPublicidad={handleOpenPublicidad}
             onOpenMatchdayGraphic={handleOpenMatchdayGraphic}
             onOpenAIPrompt={handleOpenAIPrompt}
             onOpenPostMatch={handleOpenPostMatch}
@@ -357,6 +361,7 @@ export default function App() {
                 team={team}
                 match={currentAdminMatch}
                 onBack={() => setSelectedMatchId(null)}
+                onOpenPublicidad={(tab) => handleOpenPublicidad(currentAdminMatch, tab || 'graphic')}
                 onOpenMatchdayGraphic={() => handleOpenMatchdayGraphic(currentAdminMatch)}
                 onOpenAIPrompt={() => handleOpenAIPrompt(currentAdminMatch)}
                 onOpenPostMatch={() => handleOpenPostMatch(currentAdminMatch)}
@@ -376,6 +381,7 @@ export default function App() {
                 onEditMatch={handleStartEditMatch}
                 onDeleteMatch={handleDeleteMatch}
                 onOpenMatchStats={(id) => setStatsMatchId(id)}
+                onOpenPublicidad={handleOpenPublicidad}
                 onOpenMatchdayGraphic={handleOpenMatchdayGraphic}
                 onOpenAIPrompt={handleOpenAIPrompt}
                 onOpenPostMatch={handleOpenPostMatch}
@@ -505,22 +511,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal: Matchday Visual Graphic & AI Studio */}
-      {graphicMatch && (
-        <MatchdayGraphicModal
+      {/* Modal: PUBLICIDAD Oficial (Cartelera HD + Director Creativo IA) */}
+      {publicidadMatch && (
+        <PublicidadModal
           team={team}
-          match={graphicMatch}
-          initialTab={graphicInitialTab}
-          onClose={() => setGraphicMatch(null)}
-        />
-      )}
-
-      {/* Modal: AI Prompt Generator */}
-      {aiPromptMatch && (
-        <AIPromptModal
-          team={team}
-          match={aiPromptMatch}
-          onClose={() => setAiPromptMatch(null)}
+          match={publicidadMatch}
+          initialTab={publicidadInitialTab}
+          onClose={() => setPublicidadMatch(null)}
         />
       )}
 
