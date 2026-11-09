@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Team, Match, MatchScore, MatchState, PlayerMatchStats, MatchSubstitution } from '../types';
 import { saveMatchStats, generateUUID } from '../services/dataService';
 import { formatMatchDate } from '../services/whatsappService';
@@ -64,15 +64,43 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
   const [newSubInPlayerId, setNewSubInPlayerId] = useState<string>('');
   const [newSubReason, setNewSubReason] = useState<string>('');
 
-  // Player Match Stats
+  // Quick lookup for callups to check attendance/confirmation status
+  const callupMap = useMemo(() => {
+    const map = new Map<string, (typeof match.callups)[number]>();
+    match.callups.forEach((c) => map.set(c.playerId, c));
+    return map;
+  }, [match.callups]);
+
+  // Player Match Stats - prioritized by attended/confirmed first, unconfirmed/absent last
   const [playerStats, setPlayerStats] = useState<PlayerMatchStats[]>(() => {
+    // Sort callups: attended/confirmed first, rest last, then by jersey number
+    const sortedCallups = [...match.callups].sort((a, b) => {
+      const aPrioritized = a.attended === true || (a.attended === undefined && a.status === 'Confirmado');
+      const bPrioritized = b.attended === true || (b.attended === undefined && b.status === 'Confirmado');
+      if (aPrioritized !== bPrioritized) return aPrioritized ? -1 : 1;
+      return a.jerseyNumber - b.jerseyNumber;
+    });
+
     if (match.playerStats && match.playerStats.length > 0) {
-      return match.playerStats;
+      // Re-order existing playerStats according to the priority of attendance/confirmation
+      const orderMap = new Map<string, number>();
+      sortedCallups.forEach((c, idx) => orderMap.set(c.playerId, idx));
+      return [...match.playerStats].sort((a, b) => {
+        const orderA = orderMap.has(a.playerId) ? orderMap.get(a.playerId)! : 999;
+        const orderB = orderMap.has(b.playerId) ? orderMap.get(b.playerId)! : 999;
+        return orderA - orderB;
+      });
     }
-    // Pre-populate with callup players. Default first 11 (or half) as starters
-    const defaultStartersCount = Math.min(11, match.callups.length);
-    return match.callups.map((c, index) => {
-      const isStarter = index < defaultStartersCount;
+
+    // Default first 11 starters chosen from attendees/confirmed
+    const attendeesCount = sortedCallups.filter(
+      (c) => c.attended === true || (c.attended === undefined && c.status === 'Confirmado')
+    ).length;
+    const defaultStartersCount = Math.min(11, attendeesCount > 0 ? attendeesCount : sortedCallups.length);
+
+    return sortedCallups.map((c, index) => {
+      const isPrioritized = c.attended === true || (c.attended === undefined && c.status === 'Confirmado');
+      const isStarter = isPrioritized && index < defaultStartersCount;
       return {
         playerId: c.playerId,
         playerName: c.fullName,
@@ -586,24 +614,53 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100 border border-gray-200 rounded-2xl overflow-hidden bg-white">
-                    {playerStats.map((p) => (
+                    {playerStats.map((p) => {
+                      const callup = callupMap.get(p.playerId);
+                      const isAttended = callup?.attended === true;
+                      const isConfirmed = callup?.status === 'Confirmado';
+                      const isAbsent = callup?.attended === false || callup?.status === 'No asiste';
+
+                      return (
                       <div
                         key={p.playerId}
-                        className="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/60 transition"
+                        className={`p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition ${
+                          isAttended || isConfirmed
+                            ? 'hover:bg-gray-50/60'
+                            : 'bg-gray-50/80 opacity-75'
+                        }`}
                       >
                         {/* Player Info */}
                         <div className="flex items-center gap-2.5">
-                          <span className="w-7 h-7 rounded-lg bg-emerald-800 text-white flex items-center justify-center flex-shrink-0">
+                          <span className={`w-7 h-7 rounded-lg text-white flex items-center justify-center flex-shrink-0 ${
+                            isAttended ? 'bg-emerald-800' : isConfirmed ? 'bg-emerald-700' : 'bg-gray-600'
+                          }`}>
                             <User className="w-3.5 h-3.5 text-emerald-200" />
                           </span>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-bold text-xs text-gray-900 leading-tight">
                                 {p.playerName}
                               </p>
                               {p.isStarter && (
                                 <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.2 rounded-md">
                                   Titular
+                                </span>
+                              )}
+                              {isAttended ? (
+                                <span className="text-[9px] bg-emerald-600 text-white font-extrabold px-1.5 py-0.2 rounded-md">
+                                  ✓ Asistió
+                                </span>
+                              ) : isConfirmed ? (
+                                <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-300 font-bold px-1.5 py-0.2 rounded-md">
+                                  Confirmó
+                                </span>
+                              ) : isAbsent ? (
+                                <span className="text-[9px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded-md">
+                                  No asistió
+                                </span>
+                              ) : (
+                                <span className="text-[9px] bg-gray-200 text-gray-600 font-medium px-1.5 py-0.2 rounded-md">
+                                  {callup?.status || 'Pendiente'}
                                 </span>
                               )}
                             </div>
@@ -718,7 +775,8 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 )}
               </div>
@@ -810,6 +868,9 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
                 <div className="flex flex-wrap gap-1.5">
                   {playerStats.map((p) => {
                     const isStarter = Boolean(p.isStarter);
+                    const callup = callupMap.get(p.playerId);
+                    const isAttended = callup?.attended === true;
+                    const isConfirmed = callup?.status === 'Confirmado';
                     return (
                       <button
                         key={p.playerId}
@@ -818,7 +879,9 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border shadow-2xs ${
                           isStarter
                             ? 'bg-emerald-50 text-emerald-900 border-emerald-300 ring-1 ring-emerald-300'
-                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                            : isAttended || isConfirmed
+                            ? 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                            : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200 opacity-60'
                         }`}
                       >
                         <span>{isStarter ? '⭐' : '🪑'}</span>
@@ -826,6 +889,9 @@ export const MatchStatsModal: React.FC<MatchStatsModalProps> = ({
                         <span className="text-[10px] opacity-75 font-mono">
                           {isStarter ? 'Titular' : 'Suplente'}
                         </span>
+                        {isAttended && (
+                          <span className="text-[10px] text-emerald-700 font-extrabold" title="Asistió al partido">✓</span>
+                        )}
                       </button>
                     );
                   })}

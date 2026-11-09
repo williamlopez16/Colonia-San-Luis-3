@@ -88,15 +88,22 @@ export const MatchAdminView: React.FC<MatchAdminViewProps> = ({
   const declinedPct = totalCount > 0 ? Math.round((declinedList.length / totalCount) * 100) : 0;
   const pendingPct = totalCount > 0 ? Math.max(0, 100 - confirmedPct - declinedPct) : 0;
 
-  // Filtered callups
-  const displayedCallups = match.callups.filter((c) => {
-    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      return c.fullName.toLowerCase().includes(q) || String(c.jerseyNumber).includes(q);
-    }
-    return true;
-  });
+  // Filtered & sorted callups (Confirmados first, non-confirmed at the end)
+  const displayedCallups = match.callups
+    .filter((c) => {
+      if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return c.fullName.toLowerCase().includes(q) || String(c.jerseyNumber).includes(q);
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const aRank = a.status === 'Confirmado' ? 0 : a.status === 'Pendiente' ? 1 : 2;
+      const bRank = b.status === 'Confirmado' ? 0 : b.status === 'Pendiente' ? 1 : 2;
+      if (aRank !== bRank) return aRank - bRank;
+      return a.jerseyNumber - b.jerseyNumber;
+    });
 
   const confirmationLink = getConfirmationUrl(match.id);
   const fullWhatsAppText = team ? generateWhatsAppMessage(team, match) : '';

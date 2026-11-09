@@ -24,6 +24,7 @@ import {
   MessageSquareText,
   UserCheck,
   User,
+  Plus,
 } from 'lucide-react';
 
 interface PostMatchModalProps {
@@ -105,10 +106,22 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
     return list.slice(0, 8);
   }, [players, match.callups]);
 
-  // Initialize player post-match state
+  // Selected player from catalog to add on the fly if they arrived without callup
+  const [selectedNewPlayerId, setSelectedNewPlayerId] = useState<string>('');
+
+  // Initialize player post-match state: Confirmados FIRST, others at the end
   const [playersState, setPlayersState] = useState<PlayerPostMatchState[]>(() => {
     const existingCharges = getLocalCharges();
-    return match.callups.map((c) => {
+
+    // Sort callups: 'Confirmado' first (by jerseyNumber), then non-confirmed (by jerseyNumber)
+    const sortedCallups = [...match.callups].sort((a, b) => {
+      const aConf = a.status === 'Confirmado' ? 0 : 1;
+      const bConf = b.status === 'Confirmado' ? 0 : 1;
+      if (aConf !== bConf) return aConf - bConf;
+      return a.jerseyNumber - b.jerseyNumber;
+    });
+
+    return sortedCallups.map((c) => {
       const matchingMaster = players.find((p) => p.id === c.playerId);
       const isBecado = c.isScholarship !== undefined
         ? c.isScholarship
@@ -138,6 +151,36 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
       };
     });
   });
+
+  // Available players from team catalog who weren't in the initial callups
+  const availableUncalledPlayers = useMemo(() => {
+    return players
+      .filter((p) => p.status === 'Activo' && !playersState.some((s) => s.playerId === p.id))
+      .sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+  }, [players, playersState]);
+
+  // Handler to add a player who arrived unexpectedly
+  const handleAddUncalledPlayer = (playerIdToAdd: string) => {
+    const found = players.find((p) => p.id === playerIdToAdd);
+    if (!found) return;
+
+    const newPlayerState: PlayerPostMatchState = {
+      playerId: found.id,
+      fullName: found.fullName,
+      jerseyNumber: found.jerseyNumber,
+      phone: found.phone || '',
+      originalStatus: 'No convocado',
+      attended: true, // Marked attended immediately since they arrived to play
+      isScholarship: !!found.isScholarship,
+      arbitrationPaid: !!found.isScholarship,
+      arbitrationAmount: found.isScholarship ? 0 : feePerPlayer,
+      paymentMethod: 'Efectivo',
+      notes: 'Llegó a jugar el partido sin previa convocatoria',
+    };
+
+    setPlayersState((prev) => [...prev, newPlayerState]);
+    setSelectedNewPlayerId('');
+  };
 
   // Track which player note inputs are explicitly opened
   const [openNotePlayerIds, setOpenNotePlayerIds] = useState<Set<string>>(() => {
@@ -212,6 +255,17 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
   );
 
   const balanceMoney = totalCollectedMoney - totalRefereeCost;
+
+  // Separate into Confirmed (First) and Non-Confirmed/Pending (Last)
+  const confirmedPlayersList = useMemo(
+    () => playersState.filter((p) => p.originalStatus === 'Confirmado'),
+    [playersState]
+  );
+
+  const unconfirmedPlayersList = useMemo(
+    () => playersState.filter((p) => p.originalStatus !== 'Confirmado'),
+    [playersState]
+  );
 
   // Mass action: Toggle all confirmed as attended
   const handleMarkAllAttended = () => {
@@ -333,18 +387,33 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
     setErrorMessage(null);
 
     try {
-      // 1. Update Match callups
-      const updatedCallups: Callup[] = match.callups.map((c) => {
-        const state = playersState.find((p) => p.playerId === c.playerId);
-        if (!state) return c;
+      // 1. Update Match callups with all players in playersState
+      const updatedCallups: Callup[] = playersState.map((state) => {
+        const existing = match.callups.find((c) => c.playerId === state.playerId);
+        if (existing) {
+          return {
+            ...existing,
+            attended: state.attended,
+            isScholarship: state.isScholarship,
+            arbitrationPaid: state.arbitrationPaid,
+            arbitrationAmount: state.arbitrationAmount,
+            arbitrationMethod: state.paymentMethod,
+            arbitrationNote: state.notes?.trim() || undefined,
+          };
+        }
         return {
-          ...c,
+          playerId: state.playerId,
+          fullName: state.fullName,
+          jerseyNumber: state.jerseyNumber,
+          phone: state.phone,
+          status: 'Confirmado',
           attended: state.attended,
           isScholarship: state.isScholarship,
           arbitrationPaid: state.arbitrationPaid,
           arbitrationAmount: state.arbitrationAmount,
           arbitrationMethod: state.paymentMethod,
           arbitrationNote: state.notes?.trim() || undefined,
+          confirmedAt: new Date().toISOString(),
         };
       });
 
@@ -416,6 +485,322 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const renderPlayerCard = (player: PlayerPostMatchState, isUnconfirmedSection: boolean) => {
+    const isAbsentAfterConfirm = player.originalStatus === 'Confirmado' && !player.attended;
+    const isScholarship = player.isScholarship;
+    const diffFromBase = player.arbitrationAmount - feePerPlayer;
+    const isCollector = !!refereeCollectorName && (
+      refereeCollectorName.trim().toLowerCase() === player.fullName.trim().toLowerCase() ||
+      refereeCollectorName.trim().toLowerCase().startsWith(player.fullName.trim().toLowerCase())
+    );
+    const isUnexpectedArrival = isUnconfirmedSection && player.attended;
+
+    return (
+      <div
+        key={player.playerId}
+        className={`p-3 sm:p-3.5 rounded-2xl border transition-all ${
+          player.attended
+            ? isCollector
+              ? 'bg-purple-50/60 border-purple-300 shadow-sm ring-1 ring-purple-200'
+              : isScholarship
+              ? 'bg-purple-50/50 border-purple-200 shadow-2xs'
+              : player.arbitrationPaid
+              ? 'bg-white border-emerald-300 shadow-2xs ring-1 ring-emerald-100'
+              : 'bg-amber-50/50 border-amber-200 shadow-2xs'
+            : isAbsentAfterConfirm
+            ? 'bg-red-50/60 border-red-200 opacity-90'
+            : 'bg-gray-50 border-gray-200 opacity-75'
+        }`}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Left: Player Info */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-9 h-9 rounded-xl font-mono font-black text-sm flex items-center justify-center flex-shrink-0 shadow-xs ${
+              player.attended ? 'bg-emerald-800 text-white' : 'bg-gray-700 text-gray-300'
+            }`}>
+              {player.jerseyNumber}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-extrabold text-sm text-gray-900 truncate">
+                  {player.fullName}
+                </h4>
+                {isCollector && (
+                  <span className="text-[10px] font-black bg-purple-700 text-white px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
+                    <UserCheck className="w-3 h-3 text-purple-200" />
+                    <span>Recogió Arbitraje</span>
+                  </span>
+                )}
+                {isAbsentAfterConfirm && (
+                  <span className="text-[10px] font-black bg-red-100 text-red-800 px-2 py-0.5 rounded-md border border-red-200">
+                    ✕ Faltó al partido
+                  </span>
+                )}
+                {isUnexpectedArrival && (
+                  <span className="text-[10px] font-black bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md border border-emerald-300 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>¡Llegó a jugar!</span>
+                  </span>
+                )}
+                {isScholarship && (
+                  <span className="text-[10px] font-black bg-purple-100 text-purple-900 px-2 py-0.5 rounded-md border border-purple-200">
+                    🎓 Becado
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                <p className="text-[11px] text-gray-500">
+                  Previa convocatoria:{' '}
+                  <span className={player.originalStatus === 'Confirmado' ? 'text-emerald-700 font-bold' : 'text-gray-600 font-medium'}>
+                    {player.originalStatus}
+                  </span>
+                </p>
+                {player.attended && (
+                  <button
+                    type="button"
+                    onClick={() => setRefereeCollectorName(isCollector ? '' : player.fullName)}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 border ${
+                      isCollector
+                        ? 'bg-purple-100 text-purple-900 border-purple-300'
+                        : 'bg-white hover:bg-purple-50 text-gray-500 hover:text-purple-800 border-gray-200'
+                    }`}
+                    title={isCollector ? 'Quitar como recaudador' : `Marcar a ${player.fullName} como quien recogió el arbitraje`}
+                  >
+                    <UserCheck className="w-2.5 h-2.5 text-purple-600" />
+                    <span>{isCollector ? 'Quitar rol' : '¿Recogió él?'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Asistencia + Becado + Monto Editable + Estado de Pago */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 justify-end">
+            {/* 1. Asistencia Real Toggle (MANUAL OBLIGATORIO) */}
+            <button
+              type="button"
+              onClick={() => handleToggleAttendance(player.playerId)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition cursor-pointer border ${
+                player.attended
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-300'
+              }`}
+              title="Cambiar manualmente asistencia de este jugador"
+            >
+              {player.attended ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Asistió</span>
+                </>
+              ) : (
+                <>
+                  <X className="w-3.5 h-3.5 text-red-500" />
+                  <span>No asistió</span>
+                </>
+              )}
+            </button>
+
+            {player.attended && (
+              <>
+                {/* 2. Botón Becado (Exento) */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleBecado(player.playerId)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                    isScholarship
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                      : 'bg-white hover:bg-purple-50 text-purple-800 border-purple-200'
+                  }`}
+                  title={isScholarship ? 'Quitar condición de becado' : 'Marcar como becado (exento de pago)'}
+                >
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>{isScholarship ? 'Becado' : 'Beca'}</span>
+                </button>
+
+                {/* 3. Input de Monto Personalizado */}
+                {!isScholarship && (
+                  <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-300 shadow-2xs">
+                    <span className="text-xs font-bold text-gray-400 pl-1">$</span>
+                    <input
+                      type="number"
+                      step={500}
+                      value={player.arbitrationAmount}
+                      onChange={(e) => handleChangePlayerAmount(player.playerId, Number(e.target.value) || 0)}
+                      className="w-20 text-xs font-black text-gray-900 focus:outline-none"
+                    />
+                    {diffFromBase !== 0 && (
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${diffFromBase > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {diffFromBase > 0 ? `+${diffFromBase / 1000}k` : `${diffFromBase / 1000}k`}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. Botón Pagó vs Debe */}
+                <button
+                  type="button"
+                  disabled={isScholarship}
+                  onClick={() => handleTogglePaid(player.playerId)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer border ${
+                    isScholarship
+                      ? 'bg-purple-100 text-purple-900 border-purple-300 opacity-90 cursor-default'
+                      : player.arbitrationPaid
+                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
+                      : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
+                  }`}
+                  title="Alternar estado de pago"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>
+                    {isScholarship
+                      ? 'Exento ($0)'
+                      : player.arbitrationPaid
+                      ? `Pagó ($${player.arbitrationAmount.toLocaleString('es-CO')})`
+                      : `Debe ($${player.arbitrationAmount.toLocaleString('es-CO')})`}
+                  </span>
+                  {player.arbitrationPaid ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-700" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5 text-amber-700" />
+                  )}
+                </button>
+
+                {/* 5. Selector de Método de Pago */}
+                {player.arbitrationPaid && !isScholarship && (
+                  <select
+                    value={player.paymentMethod}
+                    onChange={(e) => handleChangeMethod(player.playerId, e.target.value as PaymentMethod)}
+                    className="text-[11px] font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded-lg py-1 px-1.5 focus:outline-none"
+                  >
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Nequi">Nequi</option>
+                    <option value="Daviplata">Daviplata</option>
+                    <option value="Transferencia">Transf.</option>
+                  </select>
+                )}
+
+                {/* 6. Botón Nota / Mensaje */}
+                <button
+                  type="button"
+                  onClick={() => togglePlayerNoteOpen(player.playerId)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                    player.notes && player.notes.trim().length > 0
+                      ? isScholarship
+                        ? 'bg-purple-100 text-purple-900 border-purple-300 shadow-2xs'
+                        : 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
+                      : openNotePlayerIds.has(player.playerId)
+                      ? 'bg-gray-200 text-gray-800 border-gray-300'
+                      : 'bg-white hover:bg-gray-100 text-gray-600 border-gray-300'
+                  }`}
+                  title={
+                    player.notes
+                      ? `Nota: "${player.notes}". Toca para ver o editar.`
+                      : 'Agregar nota o motivo (ej. por qué se becó hoy)'
+                  }
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{player.notes && player.notes.trim().length > 0 ? 'Nota' : '+ Nota'}</span>
+                  {player.notes && player.notes.trim().length > 0 && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  )}
+                </button>
+              </>
+            )}
+
+            {!player.attended && (
+              <span className="text-[11px] text-gray-400 italic px-2">
+                Sin cobro (No jugó)
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Note message section (especially for becados or arbitration remarks) */}
+        {player.attended && (isScholarship || openNotePlayerIds.has(player.playerId) || (player.notes && player.notes.trim().length > 0)) && (
+          <div className={`mt-2.5 pt-2.5 border-t border-dashed rounded-xl p-2.5 space-y-2 transition-all ${
+            isScholarship
+              ? 'bg-purple-50/70 border-purple-200'
+              : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 font-bold">
+                <MessageSquareText className={`w-3.5 h-3.5 ${isScholarship ? 'text-purple-700' : 'text-emerald-700'}`} />
+                <span className={isScholarship ? 'text-purple-950 font-extrabold' : 'text-gray-800'}>
+                  {isScholarship ? '🎓 Motivo de Beca para este partido:' : '💬 Nota / Mensaje del pago:'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {player.notes && (
+                  <button
+                    type="button"
+                    onClick={() => handleChangePlayerNote(player.playerId, '')}
+                    className="text-[10px] font-semibold text-gray-400 hover:text-red-600 transition cursor-pointer"
+                    title="Borrar mensaje"
+                  >
+                    ✕ Limpiar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => togglePlayerNoteOpen(player.playerId)}
+                  className="text-[10px] text-gray-400 hover:text-gray-700 cursor-pointer"
+                >
+                  {openNotePlayerIds.has(player.playerId) ? 'Ocultar' : 'Mostrar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick reason suggestions when becado */}
+            {isScholarship && (
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                <span className="text-[10px] text-purple-900 font-bold flex-shrink-0">Motivos frecuentes:</span>
+                {[
+                  'Apoyo con transporte',
+                  'Destacada actuación',
+                  'Apoyo con implementos',
+                  'Lesión durante partido',
+                  'Convenio DT / Club',
+                ].map((sug) => (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => handleChangePlayerNote(player.playerId, sug)}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer flex-shrink-0 ${
+                      player.notes === sug
+                        ? 'bg-purple-700 text-white border-purple-700 shadow-2xs'
+                        : 'bg-white hover:bg-purple-100 text-purple-900 border-purple-300'
+                    }`}
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Note text input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={player.notes || ''}
+                onChange={(e) => handleChangePlayerNote(player.playerId, e.target.value)}
+                placeholder={
+                  isScholarship
+                    ? 'Escribe el motivo de por qué se becó hoy a este jugador...'
+                    : 'Deja una nota tipo mensaje sobre este jugador o su cuota de arbitraje...'
+                }
+                className={`w-full text-xs px-3 py-1.5 rounded-xl border bg-white focus:outline-none transition font-medium ${
+                  isScholarship
+                    ? 'border-purple-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-200 text-purple-950 placeholder-purple-300'
+                    : 'border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 text-gray-900 placeholder-gray-400'
+                }`}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -733,326 +1118,132 @@ export const PostMatchModal: React.FC<PostMatchModalProps> = ({
             </div>
           </div>
 
-          {/* Players Table / Card List */}
-          <div className="space-y-2.5">
-            {playersState.map((player) => {
-              const isAbsentAfterConfirm = player.originalStatus === 'Confirmado' && !player.attended;
-              const isScholarship = player.isScholarship;
-              const diffFromBase = player.arbitrationAmount - feePerPlayer;
-              const isCollector = !!refereeCollectorName && (
-                refereeCollectorName.trim().toLowerCase() === player.fullName.trim().toLowerCase() ||
-                refereeCollectorName.trim().toLowerCase().startsWith(player.fullName.trim().toLowerCase())
-              );
-
-              return (
-                <div
-                  key={player.playerId}
-                  className={`p-3 sm:p-3.5 rounded-2xl border transition-all ${
-                    player.attended
-                      ? isCollector
-                        ? 'bg-purple-50/60 border-purple-300 shadow-sm ring-1 ring-purple-200'
-                        : isScholarship
-                        ? 'bg-purple-50/50 border-purple-200 shadow-2xs'
-                        : player.arbitrationPaid
-                        ? 'bg-white border-emerald-200 shadow-2xs'
-                        : 'bg-amber-50/50 border-amber-200 shadow-2xs'
-                      : isAbsentAfterConfirm
-                      ? 'bg-red-50/50 border-red-200 opacity-90'
-                      : 'bg-gray-50 border-gray-200 opacity-60'
-                  }`}
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    {/* Left: Player Info */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-gray-900 text-white font-mono font-black text-sm flex items-center justify-center flex-shrink-0 shadow-xs">
-                        {player.jerseyNumber}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-extrabold text-sm text-gray-900 truncate">
-                            {player.fullName}
-                          </h4>
-                          {isCollector && (
-                            <span className="text-[10px] font-black bg-purple-700 text-white px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs">
-                              <UserCheck className="w-3 h-3 text-purple-200" />
-                              <span>Recogió Arbitraje</span>
-                            </span>
-                          )}
-                          {isAbsentAfterConfirm && (
-                            <span className="text-[10px] font-black bg-red-100 text-red-800 px-2 py-0.5 rounded-md">
-                              Faltó
-                            </span>
-                          )}
-                          {isScholarship && (
-                            <span className="text-[10px] font-black bg-purple-100 text-purple-900 px-2 py-0.5 rounded-md border border-purple-200">
-                              🎓 Becado
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                          <p className="text-[11px] text-gray-500">
-                            Previa convocatoria:{' '}
-                            <span className={player.originalStatus === 'Confirmado' ? 'text-emerald-700 font-bold' : 'text-gray-500'}>
-                              {player.originalStatus}
-                            </span>
-                          </p>
-                          {player.attended && (
-                            <button
-                              type="button"
-                              onClick={() => setRefereeCollectorName(isCollector ? '' : player.fullName)}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition cursor-pointer flex items-center gap-1 border ${
-                                isCollector
-                                  ? 'bg-purple-100 text-purple-900 border-purple-300'
-                                  : 'bg-white hover:bg-purple-50 text-gray-500 hover:text-purple-800 border-gray-200'
-                              }`}
-                              title={isCollector ? 'Quitar como recaudador' : `Marcar a ${player.fullName} como quien recogió el arbitraje`}
-                            >
-                              <UserCheck className="w-2.5 h-2.5 text-purple-600" />
-                              <span>{isCollector ? 'Quitar rol' : '¿Recogió él?'}</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right: Asistencia + Becado + Monto Editable + Estado de Pago */}
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 justify-end">
-                      {/* 1. Asistencia Real Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAttendance(player.playerId)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                          player.attended
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                            : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border-gray-300'
-                        }`}
-                        title="Cambiar asistencia"
-                      >
-                        {player.attended ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Asistió</span>
-                          </>
-                        ) : (
-                          <>
-                            <X className="w-3.5 h-3.5 text-red-500" />
-                            <span>No asistió</span>
-                          </>
-                        )}
-                      </button>
-
-                      {player.attended && (
-                        <>
-                          {/* 2. Botón Becado (Exento) */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleBecado(player.playerId)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                              isScholarship
-                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                                : 'bg-gray-50 hover:bg-purple-50 text-gray-600 hover:text-purple-800 border-gray-300'
-                            }`}
-                            title={isScholarship ? 'Jugador becado (cuota $0). Toca para desmarcar.' : 'Marcar como becado (exento de cuota)'}
-                          >
-                            <GraduationCap className="w-3.5 h-3.5" />
-                            <span>{isScholarship ? 'Becado' : 'Beca'}</span>
-                          </button>
-
-                          {/* 3. Monto Editable (Permite dar más o menos que la cuota sugerida) */}
-                          <div className="flex items-center gap-1 bg-white border border-gray-300 rounded-xl px-2 py-1 shadow-2xs focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-300">
-                            <span className="text-xs font-bold text-gray-400">$</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="500"
-                              value={player.arbitrationAmount}
-                              onChange={(e) => handleChangePlayerAmount(player.playerId, Number(e.target.value))}
-                              disabled={isScholarship}
-                              placeholder="0"
-                              className={`w-20 sm:w-22 text-xs font-mono font-bold focus:outline-none ${
-                                isScholarship ? 'text-gray-400 bg-transparent' : 'text-gray-900'
-                              }`}
-                              title="Editar el valor que aportó el jugador (puede ser mayor o menor que la cuota)"
-                            />
-                            {/* Visual pill for gave more / gave less */}
-                            {!isScholarship && diffFromBase !== 0 && (
-                              <span
-                                className={`text-[10px] font-black px-1 py-0.5 rounded ${
-                                  diffFromBase > 0
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-amber-100 text-amber-800'
-                                }`}
-                                title={diffFromBase > 0 ? 'Aportó más de la cuota' : 'Aportó menos de la cuota'}
-                              >
-                                {diffFromBase > 0 ? `+${diffFromBase / 1000}k` : `${diffFromBase / 1000}k`}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* 4. Check de Pago de Arbitraje */}
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePaid(player.playerId)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                              isScholarship
-                                ? 'bg-purple-100 text-purple-900 border-purple-300'
-                                : player.arbitrationPaid
-                                ? 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
-                                : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300'
-                            }`}
-                            title="Alternar estado de pago"
-                          >
-                            <DollarSign className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>
-                              {isScholarship
-                                ? 'Exento ($0)'
-                                : player.arbitrationPaid
-                                ? `Pagó ($${player.arbitrationAmount.toLocaleString('es-CO')})`
-                                : `Debe ($${player.arbitrationAmount.toLocaleString('es-CO')})`}
-                            </span>
-                            {player.arbitrationPaid ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-700" />
-                            ) : (
-                              <Clock className="w-3.5 h-3.5 text-amber-700" />
-                            )}
-                          </button>
-
-                          {/* 5. Selector de Método de Pago */}
-                          {player.arbitrationPaid && !isScholarship && (
-                            <select
-                              value={player.paymentMethod}
-                              onChange={(e) => handleChangeMethod(player.playerId, e.target.value as PaymentMethod)}
-                              className="text-[11px] font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded-lg py-1 px-1.5 focus:outline-none"
-                            >
-                              <option value="Efectivo">Efectivo</option>
-                              <option value="Nequi">Nequi</option>
-                              <option value="Daviplata">Daviplata</option>
-                              <option value="Transferencia">Transf.</option>
-                            </select>
-                          )}
-
-                          {/* 6. Botón Nota / Mensaje */}
-                          <button
-                            type="button"
-                            onClick={() => togglePlayerNoteOpen(player.playerId)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                              player.notes && player.notes.trim().length > 0
-                                ? isScholarship
-                                  ? 'bg-purple-100 text-purple-900 border-purple-300 shadow-2xs'
-                                  : 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
-                                : openNotePlayerIds.has(player.playerId)
-                                ? 'bg-gray-200 text-gray-800 border-gray-300'
-                                : 'bg-white hover:bg-gray-100 text-gray-600 border-gray-300'
-                            }`}
-                            title={
-                              player.notes
-                                ? `Nota: "${player.notes}". Toca para ver o editar.`
-                                : 'Agregar nota o motivo (ej. por qué se becó hoy)'
-                            }
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>{player.notes && player.notes.trim().length > 0 ? 'Nota' : '+ Nota'}</span>
-                            {player.notes && player.notes.trim().length > 0 && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                            )}
-                          </button>
-                        </>
-                      )}
-
-                      {!player.attended && (
-                        <span className="text-[11px] text-gray-400 italic px-2">
-                          Sin cobro (No jugó)
-                        </span>
-                      )}
-                    </div>
+          {/* Players List: Grouped by Confirmed first, then Unconfirmed / Pending */}
+          <div className="space-y-6">
+            {/* GRUPO 1: JUGADORES CONFIRMADOS (PRIMEROS EN LA LISTA) */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-emerald-50/90 rounded-2xl border border-emerald-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-emerald-700 text-white text-xs font-black flex items-center justify-center shadow-xs">
+                    1
+                  </span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-emerald-950 flex items-center gap-2">
+                      <span>Jugadores Confirmados</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 text-[11px] font-black">
+                        {confirmedPlayersList.length}
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-emerald-800 font-medium">
+                      Confirmaron asistencia previa. Si alguno no vino al partido, márcalo aquí como [✕ No asistió].
+                    </p>
                   </div>
+                </div>
 
-                  {/* Note message section (especially for becados or arbitration remarks) */}
-                  {player.attended && (isScholarship || openNotePlayerIds.has(player.playerId) || (player.notes && player.notes.trim().length > 0)) && (
-                    <div className={`mt-2.5 pt-2.5 border-t border-dashed rounded-xl p-2.5 space-y-2 transition-all ${
-                      isScholarship
-                        ? 'bg-purple-50/70 border-purple-200'
-                        : 'bg-gray-50 border-gray-200'
-                    }`}>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <MessageSquareText className={`w-3.5 h-3.5 ${isScholarship ? 'text-purple-700' : 'text-emerald-700'}`} />
-                          <span className={isScholarship ? 'text-purple-950 font-extrabold' : 'text-gray-800'}>
-                            {isScholarship ? '🎓 Motivo de Beca para este partido:' : '💬 Nota / Mensaje del pago:'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {player.notes && (
-                            <button
-                              type="button"
-                              onClick={() => handleChangePlayerNote(player.playerId, '')}
-                              className="text-[10px] font-semibold text-gray-400 hover:text-red-600 transition cursor-pointer"
-                              title="Borrar mensaje"
-                            >
-                              ✕ Limpiar
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => togglePlayerNoteOpen(player.playerId)}
-                            className="text-[10px] text-gray-400 hover:text-gray-700 cursor-pointer"
-                          >
-                            {openNotePlayerIds.has(player.playerId) ? 'Ocultar' : 'Mostrar'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Quick reason suggestions when becado */}
-                      {isScholarship && (
-                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                          <span className="text-[10px] text-purple-900 font-bold flex-shrink-0">Motivos frecuentes:</span>
-                          {[
-                            'Apoyo con transporte',
-                            'Destacada actuación',
-                            'Apoyo con implementos',
-                            'Lesión durante partido',
-                            'Convenio DT / Club',
-                          ].map((sug) => (
-                            <button
-                              key={sug}
-                              type="button"
-                              onClick={() => handleChangePlayerNote(player.playerId, sug)}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer flex-shrink-0 ${
-                                player.notes === sug
-                                  ? 'bg-purple-700 text-white border-purple-700 shadow-2xs'
-                                  : 'bg-white hover:bg-purple-100 text-purple-900 border-purple-300'
-                              }`}
-                            >
-                              {sug}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Note text input */}
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={player.notes || ''}
-                          onChange={(e) => handleChangePlayerNote(player.playerId, e.target.value)}
-                          placeholder={
-                            isScholarship
-                              ? 'Escribe el motivo de por qué se becó hoy a este jugador...'
-                              : 'Deja una nota tipo mensaje sobre este jugador o su cuota de arbitraje...'
-                          }
-                          className={`w-full text-xs px-3 py-1.5 rounded-xl border bg-white focus:outline-none transition font-medium ${
-                            isScholarship
-                              ? 'border-purple-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-200 text-purple-950 placeholder-purple-300'
-                              : 'border-gray-300 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200 text-gray-900 placeholder-gray-400'
-                          }`}
-                        />
-                      </div>
-                    </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-900 self-end sm:self-auto">
+                  <span className="bg-white/80 px-2.5 py-1 rounded-xl border border-emerald-200">
+                    {confirmedPlayersList.filter((p) => p.attended).length} asistieron
+                  </span>
+                  {confirmedPlayersList.filter((p) => !p.attended).length > 0 && (
+                    <span className="bg-red-100 text-red-800 px-2.5 py-1 rounded-xl border border-red-200 font-bold">
+                      {confirmedPlayersList.filter((p) => !p.attended).length} faltaron
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+
+              {confirmedPlayersList.length === 0 ? (
+                <div className="p-4 rounded-2xl border border-dashed border-gray-300 text-center text-xs text-gray-500 bg-gray-50/50">
+                  No hay jugadores marcados como confirmados en este partido.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {confirmedPlayersList.map((player) => renderPlayerCard(player, false))}
+                </div>
+              )}
+            </div>
+
+            {/* GRUPO 2: NO CONFIRMADOS / PENDIENTES / OTRAS RESPUESTAS (DE ÚLTIMAS) */}
+            <div className="space-y-3 pt-3 border-t-2 border-dashed border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-gray-100/90 rounded-2xl border border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-gray-700 text-white text-xs font-black flex items-center justify-center shadow-xs">
+                    2
+                  </span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-gray-900 flex items-center gap-2">
+                      <span>No Confirmados / Pendientes / Suplentes</span>
+                      <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-800 text-[11px] font-black">
+                        {unconfirmedPlayersList.length}
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-gray-600 font-medium">
+                      No habían confirmado previamente. Si alguno llegó a jugar hoy, haz clic en [✓ Asistió] para registrar su arbitraje.
+                    </p>
+                  </div>
+                </div>
+
+                {unconfirmedPlayersList.filter((p) => p.attended).length > 0 && (
+                  <span className="bg-amber-100 text-amber-900 px-2.5 py-1 rounded-xl border border-amber-300 text-xs font-black self-end sm:self-auto flex items-center gap-1.5">
+                    <span>⚡ {unconfirmedPlayersList.filter((p) => p.attended).length} llegaron a jugar</span>
+                  </span>
+                )}
+              </div>
+
+              {unconfirmedPlayersList.length === 0 ? (
+                <div className="p-3 rounded-2xl border border-dashed border-gray-200 text-center text-xs text-gray-400 bg-gray-50/50">
+                  No hay convocados pendientes ni rechazados.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {unconfirmedPlayersList.map((player) => renderPlayerCard(player, true))}
+                </div>
+              )}
+
+              {/* Botón / Widget para agregar jugadores del plantel que no estaban en la convocatoria pero llegaron a jugar */}
+              {availableUncalledPlayers.length > 0 && (
+                <div className="mt-3 p-3.5 bg-gradient-to-r from-emerald-50/60 to-blue-50/60 rounded-2xl border border-emerald-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-gray-800 flex items-center gap-1.5">
+                      <span>➕ ¿Llegó otro jugador del plantel sin previa convocatoria?</span>
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      Agrégalo directamente para incluirlo en la asistencia, el cobro y las finanzas de este partido.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <select
+                      value={selectedNewPlayerId}
+                      onChange={(e) => setSelectedNewPlayerId(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-xl border border-gray-300 bg-white font-medium text-gray-800 focus:outline-none focus:border-emerald-600"
+                    >
+                      <option value="">-- Seleccionar jugador --</option>
+                      {availableUncalledPlayers.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          #{p.jerseyNumber} {p.fullName}{p.isCaptain ? ' (C)' : ''}{p.isScholarship ? ' [Becado]' : ''}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!selectedNewPlayerId}
+                      onClick={() => {
+                        if (selectedNewPlayerId) {
+                          handleAddUncalledPlayer(selectedNewPlayerId);
+                          setSelectedNewPlayerId('');
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs transition disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Agregar</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>          </div>
         </div>
 
         {/* Modal Footer */}
